@@ -1,0 +1,42 @@
+version: '3.5'
+
+networks:
+  rewhitt:
+    external: false
+    name: rewhitt_dev
+
+services:
+  postgis:
+    image: malkab/postgis:gargantuan_giraffe
+    container_name: rewhitt_dev_postgis
+
+    environment:
+      - PASSWORD=postgres
+
+    networks:
+      - rewhitt
+
+    ports:
+      - "5832:5432"
+
+    volumes:
+      - ../docker_volumes-shared/postgis:/data
+      - ../assets/pg/postgresql.conf:/default_confs/postgresql.conf:ro
+
+  redis:
+    image: redis:5.0
+    container_name: rewhitt_dev_redis
+
+    networks:
+      - rewhitt
+
+    ports:
+      - "6879:6379"
+
+    volumes:
+      - ../docker_volumes-shared/redis:/data
+      - ../assets/redis.conf/redis.conf:/redis.conf:ro
+
+    entrypoint:
+      - redis-server
+      - /redis.conf

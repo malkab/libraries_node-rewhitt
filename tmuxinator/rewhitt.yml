@@ -1,0 +1,16 @@
+name: rewhitt
+root: /home/git/malkab-libraries-node/rewhitt
+
+windows:
+  - node: >
+      clear ;
+      sleep 2 ;
+      . mlkcontext common ;
+      cd docker ;
+      ./020-docker_node_run.sh
+  - compose: >
+      clear ;
+      sleep 0.2 ;
+      . mlkcontext common ;
+      cd docker ;
+      ./010-compose_up.sh

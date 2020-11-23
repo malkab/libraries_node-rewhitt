@@ -1,0 +1,1 @@
+This folder is used to store temporary Node packages in TGZ format developed in other projects and copied here with the **distribute-pack** package.json script. Use the **install-distributed-pack** package.json script to install them at target repositories.

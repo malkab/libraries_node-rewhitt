@@ -1,0 +1,65 @@
+{
+  "name": "RENAME-ME",
+  "version": "1.0.0",
+  "description": "REWRITE-ME",
+  "scope": "SCOPE-ME",
+  "author": {
+    "name": "MY-NAME",
+    "email": "MY-EMAIL@EMAIL.COM",
+    "url": "HTTP://MY-URL"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "keywords": [
+    "PUT-NEW-KEYWORDS-HERE",
+    "ANOTHER-ONE-HERE"
+  ],
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/owner/project#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/malkab/code-samples.git"
+  },
+  "private": false,
+  "scripts": {
+    "package-json-version": "echo 2020-10-22",
+    "clean": "rm -Rf build ; rm -Rf dist",
+    "quick-test": "npm-run-all --parallel service:watch:quick-test:server service:build",
+    "start": "npm-run-all --parallel service:watch:mocha:server service:build",
+    "build": "yarn clean ; yarn service:build-lib",
+    "build-with-docs": "yarn clean ; yarn service:build-lib ; yarn build-docs ; rm -Rf docs ; cp -R typedoc/build/html docs",
+    "build-docs": "cd typedoc ; ./html ; cd ..",
+    "distribute-pack": "./node-pack/distribute-pack.sh",
+    "install-distributed-pack": "./node-pack/install-packages.sh",
+    "service:build-lib": "webpack --config webpack-production.config.js --progress",
+    "service:build": "webpack --progress --watch",
+    "service:watch:quick-test:server": "nodemon --inspect=0.0.0.0:9329 \"./build/quicktest.js\" --watch \"./build/quicktest.js\"",
+    "service:watch:mocha:server": "nodemon --ext js --watch ./build/ --exec 'mocha --timeout 20000 ./build/mocha.js || true'"
+  },
+  "engines": {
+    "node": "^12.0.0"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.2.14",
+    "@types/mocha": "^8.0.4",
+    "@types/node": "^14.14.7",
+    "@types/webpack-env": "^1.15.3",
+    "chai": "^4.2.0",
+    "clean-webpack-plugin": "^3.0.0",
+    "ts-node": "^9.0.0",
+    "mocha": "^7.2.0",
+    "nodemon": "^2.0.6",
+    "npm-run-all": "^4.1.5",
+    "terser": "^5.3.8",
+    "terser-webpack-plugin": "^4.2.3",
+    "ts-loader": "^8.0.11",
+    "tslint": "^6.1.3",
+    "typedoc": "^0.19.2",
+    "typescript": "^4.0.5",
+    "webpack": "^4.44.2",
+    "webpack-cli": "^3.3.12",
+    "webpack-filter-warnings-plugin": "^1.2.1",
+    "webpack-node-externals": "^2.5.2"
+  },
+  "dependencies": {}
+}
