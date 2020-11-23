@@ -13,7 +13,6 @@ Mocha testing
 `);
 
 // Add test suites here
-describe("TESTS", () => {
-  describe("\n\n  --- a.test ---\n", () => require("./tests/a.test"));
-  describe("\n\n  --- b.test ---\n", () => require("./tests/b.test"));
+describe("rewhitt", () => {
+  describe("\n\n  --- client.test ---\n", () => require("./tests/client.test"));
 });

@@ -24,17 +24,17 @@ NODE_MEMORY=2GB
 # Null for an interactive shell session, the EXEC is passed to /bin/bash with
 # the -c option. Can be used to run Node scripts with "node whatever" or run npm
 # targets with "npm run whatever".
-EXEC="npm run mocha"
+EXEC=
 # The network to connect to. Remember that when attaching to the network of an
 # existing container (using container:name) the HOST is "localhost".
-NETWORK=
+NETWORK=rewhitt_dev
 # Jupyter mode: runs a Jupyter server with Javascript support if a version with
 # this capability is used. Jupyter exports automatically the 8888 port.
 JUPYTER=false
 # Container name.
-CONTAINER_NAME=
+CONTAINER_NAME=rewhitt_node_dev
 # Container host name. Incompatible with NETWORK=container:XXX.
-CONTAINER_HOST_NAME=
+CONTAINER_HOST_NAME=rewhitt_node_dev
 # A set of volumes in the form ("source:destination" "source:destination"). Most
 # of the times the src folder of the Node source code base is replicated inside
 # the container with the same path so build systems works as expected (see
@@ -48,7 +48,6 @@ CONTAINER_HOST_NAME=
 # publish --no-git-tag-version.
 VOLUMES=(
   $(pwd)/../node/:$(pwd)/../node/
-  # $(pwd)/../../../:$(pwd)/../../../
   ~/.npmrc:/root/.npmrc
   ~/.npmrc:/home/node/.npmrc
 )
@@ -59,12 +58,7 @@ VOLATILE=true
 # 8080 is typically assigned at container-level to an Express app entrypoint.
 # Angular applications traditionally export port 4200. Incompatible with
 # NETWORK=container:XXX.
-PORTS=(
-  8080:8080
-  9009:9229
-  9010:9329
-  4200:4200
-)
+PORTS=()
 # Custom entrypoint.
 ENTRYPOINT=/bin/bash
 # Custom workdir.

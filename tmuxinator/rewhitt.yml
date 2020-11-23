@@ -8,6 +8,14 @@ windows:
       . mlkcontext common ;
       cd docker ;
       ./020-docker_node_run.sh
+
+  - psql: >
+      clear ;
+      sleep 4 ;
+      . mlkcontext common ;
+      cd docker ;
+      ./100-psql.sh
+
   - compose: >
       clear ;
       sleep 0.2 ;
