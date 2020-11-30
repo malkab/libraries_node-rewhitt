@@ -8,7 +8,9 @@ import * as rx from "rxjs";
 
 import * as rxo from "rxjs/operators";
 
-import { Client } from "../../src/index";
+import { Client, Controller } from "../../src/index";
+
+import { TaskA } from "../demotasklibrary";
 
 /**
  *
@@ -19,14 +21,21 @@ import { Client } from "../../src/index";
 
 /**
  *
- * The logger.
+ * The loggers.
  *
  */
-export const logger: NodeLogger = new NodeLogger({
-  appName: "libsunnsaasbackend_tests",
+export const controllerLogger: NodeLogger = new NodeLogger({
+  appName: "controller",
   consoleOut: true,
   minLogLevel: ELOGLEVELS.DEBUG,
-  logFilePath: "."
+  logFilePath: "/logs/controller"
+})
+
+export const clientLogger: NodeLogger = new NodeLogger({
+  appName: "client",
+  consoleOut: true,
+  minLogLevel: ELOGLEVELS.DEBUG,
+  logFilePath: "/logs/client"
 })
 
 /**
@@ -59,12 +68,7 @@ export const redis: RxRedis = new RxRedis({
  */
 export const clearDatabase$: rx.Observable<boolean> =
   pg.executeParamQuery$(`
-    delete from warehouse.analysis_tasks;
-    delete from warehouse.properties;
-    delete from sunnsaas.analysis;
-    delete from sunnsaas.project;
-    delete from users.sunnsaas_user where sunnsaas_user_id <> 'app';
-    delete from users.sunnsaas_user_role where sunnsaas_user_role_id <> 'app';
+    drop schema if exists rewhitt_test cascade;
   `)
   .pipe(
 
@@ -76,11 +80,34 @@ export const clearDatabase$: rx.Observable<boolean> =
 
 /**
  *
+ * ReWhitt controller.
+ *
+ */
+export const controller: Controller = new Controller({
+  name: "test",
+  pg: pg,
+  redis: redis,
+  log: controllerLogger
+})
+
+/**
+ *
  * ReWhitt client.
  *
  */
 export const client: Client = new Client({
-  name: "rewhitt_test",
+  name: "test",
   pg: pg,
-  redis: redis
+  redis: redis,
+  log: clientLogger
+})
+
+/**
+ *
+ * Tasks.
+ *
+ */
+export const taskA: TaskA = new TaskA({
+  itemA: 33,
+  itemB: "33"
 })

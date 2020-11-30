@@ -16,6 +16,13 @@ windows:
       cd docker ;
       ./100-psql.sh
 
+  - redis-cli: >
+      clear ;
+      sleep 6 ;
+      . mlkcontext common ;
+      cd docker ;
+      ./110-redis_cli.sh
+
   - compose: >
       clear ;
       sleep 0.2 ;

@@ -2,30 +2,90 @@ import "mocha";
 
 import { expect } from "chai";
 
-import { clearDatabase$, pg, redis, client } from "./common";
+import { clearDatabase$, pg, redis, controller, client, taskA } from "./common";
 
 import { rxMochaTests } from "@malkab/ts-utils";
 
 /**
  *
- * Test description.
+ * Clear the database.
  *
  */
-describe("Initialization from scratch", function() {
+describe("Clear the database", function() {
 
   rxMochaTests({
 
-    testCaseName: "Initialization from scratch",
+    testCaseName: "Clear the database",
 
     observables: [
 
-      client.init$()
+      clearDatabase$
 
     ],
 
     assertions: [
 
-      (o: any) => console.log("D: jjeje", o)
+      (o: boolean) => expect(o, "clearDatabase$").to.be.true
+
+    ]
+
+  })
+
+})
+
+/**
+ *
+ * Initialize Rewhitt.
+ *
+ */
+describe("Initialize Rewhitt", function() {
+
+  rxMochaTests({
+
+    testCaseName: "Initialize Rewhitt",
+
+    observables: [
+
+      controller.init$()
+
+    ],
+
+    assertions: [
+
+      (o: any) => expect(o, "Initialize Rewhitt").to.be.true
+
+    ],
+
+    verbose: false
+
+  })
+
+})
+
+/**
+ *
+ * Post a task.
+ *
+ */
+describe("Post a task", function() {
+
+  rxMochaTests({
+
+    testCaseName: "Post a task",
+
+    observables: [
+
+      client.post(taskA)
+
+    ],
+
+    assertions: [
+
+      (o: any) => {
+
+        console.log("D: jeje", o);
+
+      }
 
     ],
 
@@ -33,4 +93,4 @@ describe("Initialization from scratch", function() {
 
   })
 
-});
+})

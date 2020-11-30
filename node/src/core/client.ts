@@ -1,11 +1,18 @@
 import { NodeLogger } from '@malkab/node-logger';
+
 import { RxPg } from '@malkab/rxpg';
 
-import { RxRedis } from '@malkab/rxredis';
+import { RxRedis, RxRedisQueue } from '@malkab/rxredis';
+
+import { Task } from './task';
 
 import * as rx from "rxjs";
 
 import * as rxo from "rxjs/operators";
+
+import { EREDISMESSAGETYPE } from "./eredismessagetype";
+
+import { IRedisMessage } from "./iredismessage";
 
 /**
  *
@@ -16,11 +23,26 @@ export class Client {
 
   /**
    *
+   * The RxRedisQueue for client > controller messages.
+   *
+   */
+  private _clientControllerQueue: RxRedisQueue;
+
+  /**
+   *
    * Logger.
    *
    */
   private _log: NodeLogger | undefined;
   get log(): NodeLogger | undefined { return this._log }
+
+  /**
+   *
+   * The name of the client > controller queue.
+   *
+   */
+  get clientControllerQueueName(): string {
+    return `rewhitt::${this.name}::client::controller` }
 
   /**
    *
@@ -68,64 +90,23 @@ export class Client {
     this._redis = redis;
     this._log = log;
 
+    // The queue client > controller
+    this._clientControllerQueue = new RxRedisQueue(this._redis);
+
   }
 
   /**
    *
-   * Init the instance from scratch at PG.
+   * Post a task.
    *
    */
-  public init$(): rx.Observable<any> {
+  public post(task: Task): rx.Observable<any> {
 
-    return this._pg.executeParamQuery$(`
-      begin;
-
-      create schema rewhitt;
-
-      /**
-
-        Workers heartbeat.
-
-      */
-      create table rewhitt.worker(
-        worker_id varchar(100) primary key,
-        last_activity timestamp,
-        status jsonb
-      );
-
-      /**
-
-        AnalysisTasks.
-
-      */
-      create table rewhitt.tasks(
-        task_id varchar(64) primary key,
-        task_type varchar(64),
-        cached_status integer,
-        cached_status_messages jsonb[],
-        worker_id varchar(100) references rewhitt.worker(worker_id),
-        creation timestamp,
-        start timestamp,
-        modification timestamp,
-        completion timestamp,
-        additional_params jsonb,
-        data jsonb
-      );
-
-      commit;
-    `).
-    pipe(
-
-      rxo.catchError((e: Error) => {
-
-        console.log("D: jjene", e.message);
-
-        if (e.message === "")
-
-        return rx.of(33);
-
+    return this._clientControllerQueue.set$(this.clientControllerQueueName,
+      JSON.stringify(<IRedisMessage>{
+        messageType: EREDISMESSAGETYPE.POST,
+        payload: { task: JSON.stringify(task.serial) }
       })
-
     )
 
   }

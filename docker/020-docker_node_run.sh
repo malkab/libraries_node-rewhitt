@@ -47,7 +47,8 @@ CONTAINER_HOST_NAME=rewhitt_node_dev
 # it will be asking for Git details when publishing. To avoid that, use yarn
 # publish --no-git-tag-version.
 VOLUMES=(
-  $(pwd)/../node/:$(pwd)/../node/
+  $(pwd)/../:$(pwd)/../
+  $(pwd)/../docker_volumes-shared/logs/:/logs
   ~/.npmrc:/root/.npmrc
   ~/.npmrc:/home/node/.npmrc
 )
