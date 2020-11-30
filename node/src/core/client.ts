@@ -8,11 +8,7 @@ import { Task } from './task';
 
 import * as rx from "rxjs";
 
-import * as rxo from "rxjs/operators";
-
-import { EREDISMESSAGETYPE } from "./eredismessagetype";
-
-import { IRedisMessage } from "./iredismessage";
+import { PostRedisMessage } from './redismessages/postredismessage';
 
 /**
  *
@@ -20,13 +16,6 @@ import { IRedisMessage } from "./iredismessage";
  *
  */
 export class Client {
-
-  /**
-   *
-   * The RxRedisQueue for client > controller messages.
-   *
-   */
-  private _clientControllerQueue: RxRedisQueue;
 
   /**
    *
@@ -90,9 +79,6 @@ export class Client {
     this._redis = redis;
     this._log = log;
 
-    // The queue client > controller
-    this._clientControllerQueue = new RxRedisQueue(this._redis);
-
   }
 
   /**
@@ -102,11 +88,19 @@ export class Client {
    */
   public post(task: Task): rx.Observable<any> {
 
-    return this._clientControllerQueue.set$(this.clientControllerQueueName,
-      JSON.stringify(<IRedisMessage>{
-        messageType: EREDISMESSAGETYPE.POST,
-        payload: { task: JSON.stringify(task.serial) }
-      })
+    return rx.zip(
+
+      RxRedisQueue.set$(this._redis, this.clientControllerQueueName,
+        new PostRedisMessage({
+          from: this._name,
+          to: "controller",
+          taskId: task.taskId
+        })
+      ),
+
+      RxRedisQueue.set$(this._redis, this.clientControllerQueueName,
+        task)
+
     )
 
   }

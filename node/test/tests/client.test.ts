@@ -19,13 +19,17 @@ describe("Clear the database", function() {
 
     observables: [
 
-      clearDatabase$
+      clearDatabase$,
+
+      redis.flushall$()
 
     ],
 
     assertions: [
 
-      (o: boolean) => expect(o, "clearDatabase$").to.be.true
+      (o: boolean) => expect(o, "clearDatabase$").to.be.true,
+
+      (o: boolean) => expect(o, "flushall$").to.be.equal("OK")
 
     ]
 

@@ -1,22 +1,11 @@
+import * as rx from "rxjs";
+
 /**
  *
  * This is the base Task class every task definition must implement.
  *
  */
 export class Task {
-
-  /**
-   *
-   * This is the serializing method to serialize the task to the DB and Redis.
-   *
-   */
-  get serial(): any {
-
-    return {
-      taskId: this._taskId
-    }
-
-  }
 
   /**
    *
@@ -38,6 +27,19 @@ export class Task {
   }) {
 
     this._taskId = taskId;
+
+  }
+
+  /**
+   *
+   * This is the serializing method to serialize the task to the DB and Redis.
+   *
+   */
+  public serial$(): rx.Observable<any> {
+
+    return rx.of({
+      taskId: this._taskId
+    })
 
   }
 

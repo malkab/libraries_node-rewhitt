@@ -10,6 +10,10 @@ import * as rx from "rxjs";
 
 import * as rxo from "rxjs/operators";
 
+import { RedisMessage } from "./redismessages/redismessage";
+
+import { redisMessageFactory } from './redismessages/redismessagefactory';
+
 /**
  *
  * This is the Rewhitt controller.
@@ -32,13 +36,6 @@ export class Controller {
    */
   get clientControllerQueueName(): string {
     return `rewhitt::${this.name}::client::controller` }
-
-  /**
-   *
-   * The client > controller blocking queue.
-   *
-   */
-  private _clientControllerQueue: RxRedisQueue;
 
   /**
    *
@@ -86,49 +83,35 @@ export class Controller {
     this._redis = redis;
     this._log = log;
 
-    this._clientControllerQueue = redis.getRxRedisQueue();
-
     // The blocking connection for the queue client::controller
     // this._clientControllerQueue = new RxRedisQueue(this._redis);
 
-    // Start loops
-    this._clientControllerQueueLoop();
-
-  }
-
-  /**
-   *
-   * The loop to check the client > controller queue.
-   *
-   */
-  private _clientControllerQueueLoop() {
-
-    this._clientControllerQueue.get$(this.clientControllerQueueName)
+    // Start client > controller message loop
+    RxRedisQueue.loop$({
+      redis: this._redis.blockingClone(),
+      keys: this.clientControllerQueueName,
+      constructorFunc: (params: any) => redisMessageFactory(params)
+    })
     .subscribe(
 
       (o: any) => {
 
         console.log("D: jeje", o);
 
-        // this._clientControllerQueueLoop();
-
       },
 
       (e: Error) => {
 
-        console.log("D: jeje error", e);
-
-        // this._clientControllerQueueLoop();
+        console.log("D: jewww", e);
 
       },
 
       () => {
 
-        console.log("D: SHOULD NOT HAPPEN");
-
-        // this._clientControllerQueueLoop();
+        throw new Error("RxRedisQueue client > controller completed, should not happen");
 
       }
+
     )
 
   }
