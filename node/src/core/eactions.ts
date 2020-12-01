@@ -4,5 +4,6 @@
  *
  */
 export enum EACTIONS {
-  INIT = "INIT"
+  INIT = "INIT",
+  POST = "POST"
 }

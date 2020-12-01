@@ -84,7 +84,8 @@ export const clearDatabase$: rx.Observable<boolean> =
  *
  */
 export const controller: Controller = new Controller({
-  name: "test",
+  rewhittId: "test",
+  controllerName: "theController",
   pg: pg,
   redis: redis,
   log: controllerLogger
@@ -96,7 +97,8 @@ export const controller: Controller = new Controller({
  *
  */
 export const client: Client = new Client({
-  name: "test",
+  rewhittId: "test",
+  clientName: "theClient",
   pg: pg,
   redis: redis,
   log: clientLogger
@@ -108,6 +110,8 @@ export const client: Client = new Client({
  *
  */
 export const taskA: TaskA = new TaskA({
+  taskId: "aTaskA",
   itemA: 33,
-  itemB: "33"
+  itemB: "33",
+  log: clientLogger
 })

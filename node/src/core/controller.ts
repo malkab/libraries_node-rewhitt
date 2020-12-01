@@ -13,6 +13,7 @@ import * as rxo from "rxjs/operators";
 import { RedisMessage } from "./redismessages/redismessage";
 
 import { redisMessageFactory } from './redismessages/redismessagefactory';
+import { PostRedisMessage } from './redismessages/postredismessage';
 
 /**
  *
@@ -35,15 +36,23 @@ export class Controller {
    *
    */
   get clientControllerQueueName(): string {
-    return `rewhitt::${this.name}::client::controller` }
+    return `rewhitt::${this.rewhittId}::client::controller` }
 
   /**
    *
-   * Rewhitt instance name.
+   * Rewhitt instance ID, used to identify the PG schema.
    *
    */
-  private _name: string;
-  get name(): string { return this._name }
+  private _rewhittId: string;
+  get rewhittId(): string { return this._rewhittId }
+
+  /**
+   *
+   * Rewhitt client name.
+   *
+   */
+  private _controllerName: string;
+  get controllerName(): string { return this._controllerName }
 
   /**
    *
@@ -67,18 +76,21 @@ export class Controller {
    *
    */
   constructor({
-      name,
+      rewhittId,
+      controllerName,
       pg,
       redis,
       log
     }: {
-      name: string;
+      rewhittId: string;
+      controllerName: string;
       pg: RxPg;
       redis: RxRedis;
       log?: NodeLogger;
   }) {
 
-    this._name = name;
+    this._rewhittId = rewhittId;
+    this._controllerName = controllerName;
     this._pg = pg;
     this._redis = redis;
     this._log = log;
@@ -90,8 +102,23 @@ export class Controller {
     RxRedisQueue.loop$({
       redis: this._redis.blockingClone(),
       keys: this.clientControllerQueueName,
-      constructorFunc: (params: any) => redisMessageFactory(params)
+      constructorFunc: (params: any) => redisMessageFactory({
+        ...params,
+        rewhittId: this._rewhittId,
+        pg: this._pg,
+        redis: this._redis,
+        log: this._log
+      })
     })
+    .pipe(
+
+      rxo.concatMap((o: any) => {
+
+        return o.object.process$();
+
+      })
+
+    )
     .subscribe(
 
       (o: any) => {
@@ -102,7 +129,7 @@ export class Controller {
 
       (e: Error) => {
 
-        console.log("D: jewww", e);
+        throw new Error(`RxRedisQueue client > controller error, should not happen: ${e.message}`);
 
       },
 
@@ -126,14 +153,14 @@ export class Controller {
     return this._pg.executeParamQuery$(`
       begin;
 
-      create schema rewhitt_${this.name};
+      create schema rewhitt_${this.rewhittId};
 
       /**
        *
        * Workers heartbeat.
        *
        */
-      create table rewhitt_${this.name}.worker(
+      create table rewhitt_${this.rewhittId}.worker(
         worker_id varchar(100) primary key,
         last_activity timestamp,
         status jsonb
@@ -141,31 +168,30 @@ export class Controller {
 
       /**
        *
-       * AnalysisTasks.
+       * Actions catalog, this must match the ENUM EACTIONS.
        *
        */
-      create table rewhitt_${this.name}.tasks(
-        task_id varchar(64) primary key,
-        task_type varchar(64),
-        cached_status integer,
-        cached_status_messages jsonb[],
-        worker_id varchar(100) references rewhitt_${this.name}.worker(worker_id),
-        creation timestamp,
-        start timestamp,
-        modification timestamp,
-        completion timestamp,
-        additional_params jsonb,
-        data jsonb
+      create table rewhitt_${this.rewhittId}.action(
+        action_id varchar(64) primary key,
+        description text
       );
 
       /**
        *
-       * Actions catalog, this must match the ENUM EACTIONS.
+       * AnalysisTasks.
        *
        */
-      create table rewhitt_${this.name}.action(
-        action_id varchar(64) primary key,
-        description text
+      create table rewhitt_${this.rewhittId}.tasks(
+        task_id varchar(64) primary key,
+        task_type varchar(64),
+        cached_status varchar(64) references rewhitt_${this.rewhittId}.action(action_id),
+        cached_status_messages jsonb[],
+        worker_id varchar(100) references rewhitt_${this.rewhittId}.worker(worker_id),
+        posted timestamp,
+        start timestamp,
+        modification timestamp,
+        completion timestamp,
+        additional_params jsonb
       );
 
       /**
@@ -173,7 +199,7 @@ export class Controller {
        * Log type entry, this must match the ENUM ELOGTYPE.
        *
        */
-      create table rewhitt_${this.name}.log_type(
+      create table rewhitt_${this.rewhittId}.log_type(
         log_type_id varchar(64) primary key
       );
 
@@ -182,11 +208,11 @@ export class Controller {
        * Log.
        *
        */
-      create table rewhitt_${this.name}.log(
+      create table rewhitt_${this.rewhittId}.log(
         t timestamp,
         agent varchar(64),
-        log_type_id varchar(64) references rewhitt_${this.name}.log_type(log_type_id),
-        action_id varchar(64) references rewhitt_${this.name}.action(action_id),
+        log_type_id varchar(64) references rewhitt_${this.rewhittId}.log_type(log_type_id),
+        action_id varchar(64) references rewhitt_${this.rewhittId}.action(action_id),
         additional_params jsonb,
         primary key (t, agent)
       );
@@ -196,7 +222,7 @@ export class Controller {
        * Log types.
        *
        */
-      insert into rewhitt_${this.name}.log_type
+      insert into rewhitt_${this.rewhittId}.log_type
       values ('INFO');
 
       /**
@@ -204,16 +230,19 @@ export class Controller {
        * Actions.
        *
        */
-      insert into rewhitt_${this.name}.action
+      insert into rewhitt_${this.rewhittId}.action
       values ('INIT', 'Rewhitt initialization');
+
+      insert into rewhitt_${this.rewhittId}.action
+      values ('POST', 'Action POST');
 
       /**
        *
        * Log the initialization.
        *
        */
-      insert into rewhitt_${this.name}.log
-      values (now(), 'CLIENT', 'INFO', 'INIT');
+      insert into rewhitt_${this.rewhittId}.log
+      values (now(), 'CONTROLLER', 'INFO', 'INIT');
 
       commit;
     `).
@@ -221,11 +250,11 @@ export class Controller {
 
       rxo.catchError((e: Error) => {
 
-        if (e.message === `schema "rewhitt_${this.name}" already exists`) {
+        if (e.message === `schema "rewhitt_${this.rewhittId}" already exists`) {
 
           this.log?.logError({
             message: `error initializing Rewhitt: already initialized`,
-            moduleName: "client",
+            moduleName: "controller",
             methodName: "init()"
           });
 
@@ -235,7 +264,7 @@ export class Controller {
 
           this.log?.logError({
             message: `unexpected error initializing Rewhitt: ${e.message}`,
-            moduleName: "client",
+            moduleName: "controller",
             methodName: "init()"
           });
 
@@ -248,10 +277,10 @@ export class Controller {
       rxo.map((o: any) => {
 
         this.log?.logInfo({
-          message: `Rewhitt ${this.name} initialized`,
-          moduleName: "client",
+          message: `Rewhitt ${this.rewhittId} initialized`,
+          moduleName: "controller",
           methodName: "init()",
-          payload: { name: this.name }
+          payload: { name: this.rewhittId }
         });
 
         return true;

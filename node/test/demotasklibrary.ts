@@ -3,12 +3,41 @@ import { Task } from "../src/index";
 import * as rx from "rxjs";
 
 import * as rxo from "rxjs/operators";
+import { NodeLogger } from "@malkab/node-logger";
 
 /**
  *
- * This is a demo library defining tasks.
+ * This is a demo library defining all classes to define a Rewhitt
+ * infrastructure. It must address several steps defined below.
+ *
+ * Define a serie of tasks that extends the Task base class from Rewhitt. Most
+ * important is to define a **serial$** method, extending the **super.serial$**
+ * with any additional data item to be serialized. Create also a factory
+ * function to instantiate the right task type based on the Task base class
+ * **taskId** member.
+ *
+ * Tasks must have a deconstructed constructor compatible with the **serial$**
+ * function.
  *
  */
+export const taskFactory: (params: any) => TaskA | TaskB = (params: any) => {
+
+  if(params.taskId === "TASKA") {
+
+    return new TaskA(params);
+
+  }
+
+  if(params.taskId === "TASKB") {
+
+    return new TaskB(params);
+
+  }
+
+  throw new Error(`udefined taskId ${params.taskId}: ${params}`);
+
+}
+
 export class TaskA extends Task {
 
   /**
@@ -33,15 +62,21 @@ export class TaskA extends Task {
    *
    */
   constructor({
+      taskId,
       itemA,
-      itemB
+      itemB,
+      log
     }: {
+      taskId: string;
       itemA: number;
       itemB: string;
+      log?: NodeLogger;
   }) {
 
     super({
-      taskId: "TASKA"
+      taskId: taskId,
+      taskType: "TASKA",
+      log: log
     });
 
     this._itemA = itemA;
@@ -63,8 +98,84 @@ export class TaskA extends Task {
 
         return {
           ...o,
-          itemA: this._itemA,
-          itemB: this._itemB
+          additionalParams: {
+            itemA: this._itemA,
+            itemB: this._itemB
+          }
+        };
+
+      })
+
+    )
+
+  }
+
+}
+
+export class TaskB extends Task {
+
+  /**
+   *
+   * Item C.
+   *
+   */
+  private _itemC: number;
+  get itemC(): number { return this._itemC }
+
+  /**
+   *
+   * Item D.
+   *
+   */
+  private _itemD: string;
+  get itemD(): string { return this._itemD }
+
+  /**
+   *
+   * Constructor. Tasks must be parametrized.
+   *
+   */
+  constructor({
+      taskId,
+      itemC,
+      itemD,
+      log
+    }: {
+      taskId: string;
+      itemC: number;
+      itemD: string;
+      log?: NodeLogger;
+  }) {
+
+    super({
+      taskId: taskId,
+      taskType: "TASKB",
+      log: log
+    });
+
+    this._itemC = itemC;
+    this._itemD = itemD;
+
+  }
+
+  /**
+   *
+   * Supersede super serial$ for RxRedisQueue.
+   *
+   */
+  public serial$(): rx.Observable<any> {
+
+    return super.serial$()
+    .pipe(
+
+      rxo.map((o: any) => {
+
+        return {
+          ...o,
+          additionalParams: {
+            itemC: this._itemC,
+            itemD: this._itemD
+          }
         };
 
       })

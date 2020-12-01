@@ -117,11 +117,11 @@ describe("Check first entry log", function() {
 
       (o: any) => {
 
-        expect(o.rows[0].agent, "Check client")
-          .to.be.equal("CLIENT");
-
         expect(o.rows[0].agent, "Check agent")
           .to.be.equal("CLIENT");
+
+        expect(o.rows[0].log_type_id, "Check log type ID")
+          .to.be.equal("INFO");
 
         expect(o.rows[0].action_id, "Check action_id")
           .to.be.equal("INIT");

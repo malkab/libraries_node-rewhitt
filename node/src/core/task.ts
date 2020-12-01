@@ -1,3 +1,4 @@
+import { NodeLogger } from '@malkab/node-logger';
 import * as rx from "rxjs";
 
 /**
@@ -9,6 +10,13 @@ export class Task {
 
   /**
    *
+   * The log.
+   *
+   */
+  protected _log: NodeLogger | undefined;
+
+  /**
+   *
    * Task ID.
    *
    */
@@ -17,16 +25,30 @@ export class Task {
 
   /**
    *
+   * Task type.
+   *
+   */
+  protected _taskType: string;
+  get taskType(): string { return this._taskType }
+
+  /**
+   *
    * Constructor.
    *
    */
   constructor({
-      taskId
+      taskId,
+      taskType,
+      log
     }: {
       taskId: string;
+      taskType: string;
+      log: NodeLogger;
   }) {
 
     this._taskId = taskId;
+    this._taskType = taskType;
+    this._log = log;
 
   }
 
@@ -38,7 +60,8 @@ export class Task {
   public serial$(): rx.Observable<any> {
 
     return rx.of({
-      taskId: this._taskId
+      taskId: this.taskId,
+      taskType: this.taskType
     })
 
   }

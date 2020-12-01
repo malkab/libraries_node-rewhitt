@@ -8,6 +8,8 @@ import { Task } from './task';
 
 import * as rx from "rxjs";
 
+import * as rxo from "rxjs/operators";
+
 import { PostRedisMessage } from './redismessages/postredismessage';
 
 /**
@@ -31,15 +33,23 @@ export class Client {
    *
    */
   get clientControllerQueueName(): string {
-    return `rewhitt::${this.name}::client::controller` }
+    return `rewhitt::${this.rewhittId}::client::controller` }
 
   /**
    *
-   * Rewhitt instance name.
+   * Rewhitt instance ID, used to identify the PG schema.
    *
    */
-  private _name: string;
-  get name(): string { return this._name }
+  private _rewhittId: string;
+  get rewhittId(): string { return this._rewhittId }
+
+  /**
+   *
+   * Rewhitt client name.
+   *
+   */
+  private _clientName: string;
+  get clientName(): string { return this._clientName }
 
   /**
    *
@@ -63,18 +73,21 @@ export class Client {
    *
    */
   constructor({
-      name,
+      rewhittId,
+      clientName,
       pg,
       redis,
       log
     }: {
-      name: string;
+      rewhittId: string;
+      clientName: string;
       pg: RxPg;
       redis: RxRedis;
       log?: NodeLogger;
   }) {
 
-    this._name = name;
+    this._rewhittId = rewhittId;
+    this._clientName = clientName;
     this._pg = pg;
     this._redis = redis;
     this._log = log;
@@ -88,18 +101,24 @@ export class Client {
    */
   public post(task: Task): rx.Observable<any> {
 
-    return rx.zip(
+    return task.serial$()
+    .pipe(
 
-      RxRedisQueue.set$(this._redis, this.clientControllerQueueName,
-        new PostRedisMessage({
-          from: this._name,
-          to: "controller",
-          taskId: task.taskId
-        })
-      ),
+      rxo.concatMap((o: any) => {
 
-      RxRedisQueue.set$(this._redis, this.clientControllerQueueName,
-        task)
+        return RxRedisQueue.set$(this._redis, this.clientControllerQueueName,
+          new PostRedisMessage({
+            rewhittId: this._rewhittId,
+            pg: this._pg,
+            redis: this._redis,
+            from: this.clientName,
+            to: "controller",
+            serialTask: o,
+            log: this._log
+          })
+        )
+
+      })
 
     )
 

@@ -1,8 +1,11 @@
 import { EREDISMESSAGETYPE } from "../eredismessagetype";
 
-import { IRedisMessageObject } from "@malkab/rxredis";
+import { IRedisMessageObject, RxRedis } from "@malkab/rxredis";
 
 import * as rx from "rxjs";
+
+import { NodeLogger } from '@malkab/node-logger';
+import { RxPg } from '@malkab/rxpg';
 
 /**
  *
@@ -10,6 +13,34 @@ import * as rx from "rxjs";
  *
  */
 export class RedisMessage implements IRedisMessageObject {
+
+  /**
+   *
+   * The Rewhitt ID.
+   *
+   */
+  protected _rewhittId: string;
+
+  /**
+   *
+   * The PostgreSQL instance.
+   *
+   */
+  protected _pg: RxPg;
+
+  /**
+   *
+   * The Redis instance.
+   *
+   */
+  protected _redis: RxRedis;
+
+  /**
+   *
+   * The log.
+   *
+   */
+  protected _log: NodeLogger | undefined;
 
   /**
    *
@@ -41,18 +72,30 @@ export class RedisMessage implements IRedisMessageObject {
    *
    */
   constructor({
+      rewhittId,
+      pg,
+      redis,
       messageType,
       from,
-      to
+      to,
+      log
     }: {
+      rewhittId: string;
+      pg: RxPg;
+      redis: RxRedis;
       messageType: EREDISMESSAGETYPE;
       from: string;
       to: string;
+      log?: NodeLogger;
   }) {
 
+    this._rewhittId = rewhittId;
+    this._pg = pg;
+    this._redis = redis;
     this._messageType = messageType;
     this._from = from;
     this._to = to;
+    this._log = log;
 
   }
 
@@ -68,6 +111,18 @@ export class RedisMessage implements IRedisMessageObject {
       to: this._to,
       messageType: this._messageType
     })
+
+  }
+
+  /**
+   *
+   * process$ the message.
+   *
+   */
+  public process$(): rx.Observable<any> {
+
+    throw new Error(
+      "RedisMessage base task: process$ must be reimplemented at base message classes");
 
   }
 
