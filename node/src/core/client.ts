@@ -10,7 +10,11 @@ import * as rx from "rxjs";
 
 import * as rxo from "rxjs/operators";
 
-import { PostRedisMessage } from './redismessages/postredismessage';
+import { PostCommand } from './commands/postcommand';
+
+import { QueueCommand } from './commands/queuecommand';
+
+import { IRewhittTaskRegistry } from "./irewhitttaskregistry";
 
 /**
  *
@@ -18,6 +22,13 @@ import { PostRedisMessage } from './redismessages/postredismessage';
  *
  */
 export class Client {
+
+  /**
+   *
+   * The task registration.
+   *
+   */
+  private _taskRegistry: IRewhittTaskRegistry;
 
   /**
    *
@@ -56,8 +67,8 @@ export class Client {
    * RxPg.
    *
    */
-  private _pg: RxPg;
-  get pg(): RxPg { return this._pg }
+  // private _pg: RxPg;
+  // get pg(): RxPg { return this._pg }
 
   /**
    *
@@ -75,21 +86,21 @@ export class Client {
   constructor({
       rewhittId,
       clientName,
-      pg,
       redis,
+      taskRegistry,
       log
     }: {
       rewhittId: string;
       clientName: string;
-      pg: RxPg;
       redis: RxRedis;
+      taskRegistry: IRewhittTaskRegistry;
       log?: NodeLogger;
   }) {
 
     this._rewhittId = rewhittId;
     this._clientName = clientName;
-    this._pg = pg;
     this._redis = redis;
+    this._taskRegistry = taskRegistry;
     this._log = log;
 
   }
@@ -99,7 +110,14 @@ export class Client {
    * Post a task.
    *
    */
-  public post(task: Task): rx.Observable<any> {
+  public post$(task: Task): rx.Observable<any> {
+
+    this._log?.logInfo({
+      methodName: "post$",
+      moduleName: "Client",
+      message: `POST task ${task.taskId} type ${task.taskType}`,
+      payload: { taskId: task.taskId, taskType: task.taskType }
+    })
 
     return task.serial$()
     .pipe(
@@ -107,10 +125,45 @@ export class Client {
       rxo.concatMap((o: any) => {
 
         return RxRedisQueue.set$(this._redis, this.clientControllerQueueName,
-          new PostRedisMessage({
+          new PostCommand({
             rewhittId: this._rewhittId,
-            pg: this._pg,
-            redis: this._redis,
+            taskRegistry: this._taskRegistry,
+            from: this.clientName,
+            to: "controller",
+            serialTask: o,
+            log: this._log
+          })
+        )
+
+      })
+
+    )
+
+  }
+
+  /**
+   *
+   * Queue a task.
+   *
+   */
+  public queue$(task: Task): rx.Observable<any> {
+
+    this._log?.logInfo({
+      methodName: "queue$",
+      moduleName: "Client",
+      message: `QUEUE task ${task.taskId} type ${task.taskType}`,
+      payload: { taskId: task.taskId, taskType: task.taskType }
+    })
+
+    return task.serial$()
+    .pipe(
+
+      rxo.concatMap((o: any) => {
+
+        return RxRedisQueue.set$(this._redis, this.clientControllerQueueName,
+          new QueueCommand({
+            rewhittId: this._rewhittId,
+            taskRegistry: this._taskRegistry,
             from: this.clientName,
             to: "controller",
             serialTask: o,

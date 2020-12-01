@@ -63,7 +63,8 @@
   },
   "dependencies": {
     "@malkab/node-logger": "^1.1.4",
-    "@malkab/rxpg": "^4.1.18",
-    "@malkab/rxredis": "^2.3.6"
+    "@malkab/rxpg": "^4.1.21",
+    "@malkab/rxredis": "^2.3.7",
+    "@malkab/ts-utils": "^4.1.11"
   }
 }

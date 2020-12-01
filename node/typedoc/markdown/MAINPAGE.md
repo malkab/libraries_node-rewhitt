@@ -4,12 +4,19 @@
 
 The core of Rewhitt is composed of the following classes:
 
-- **client:** the Rewhitt client offers several services to programs accessing a Rewhitt system, like for example checking the Rewhitt status, pushing new tasks into the system, accessing tasks results, initializing the system, etc.
+- **client:** the Rewhitt client offers several services to programs accessing a Rewhitt system, like for example checking the Rewhitt status, pushing new tasks into the system, accessing tasks results, initializing the system, etc. There can be many clients accessing a Rewhitt instance and should communicate only via Redis, so no access to the DB;
+
+- **controller:** the hub of the Rewhitt system, controls and manages task's workflows. It's the only one allowed to connect to the DB;
+
+- **worker:** parallelized workers to perform tasks. Should not connect to the DB, only to Redis.
 
 
-## Posting Messages to Redis
+## Workflow Basics
 
-Post with **RxRedisQueue.lset$**, get with **RxRedisQueue.rget$**.
+Each component posts and listens to queues on Redis. Actions are asked by posting inherited classes from the **RedisMessage** class. Each component can check for PUB/SUB Redis channels or RxRedisQueue queues to be aware of what's going on in the system.
+
+To design a new action or command, create a new **RedisMessage** derived class with the logic of the command.
+
 
 ## Logging
 
@@ -32,7 +39,25 @@ This is the life cycle of a task, in order of ocurrence more or less.
 
 ### POST
 
-A client posts a task to the system, posting the **serial** member of the task to a Redis **rewhitt::[[name]]::controller::test**.
+A client posts a task to the system, posting the **serial** member of the task to a Redis **rewhitt::[[name]]::controller::test**. POSTing a task with the **client.post** method put the task on the queue to be assigned to the task's controller > worker queues when the controller cycles its management loop, which allows to introduce logic on how or when to queue the task to the workers.
+
+### QUEUE
+
+A client queue directly a task into the task's controller > worker queues, skipping the POST step altogether and granting direct access to the workers.
+
+
+## Creating a Tasks library
+
+Each task must inherit the **Task** class and follow its conventions to create a module of tasks to be performed by the Rewhitt instance.
+
+
+
+
+
+
+
+
+
 
 
 

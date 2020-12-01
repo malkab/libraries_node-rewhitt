@@ -10,7 +10,7 @@ import * as rxo from "rxjs/operators";
 
 import { Client, Controller } from "../../src/index";
 
-import { TaskA } from "../demotasklibrary";
+import { TaskA, taskRegistry } from "../demotasklibrary";
 
 /**
  *
@@ -80,6 +80,14 @@ export const clearDatabase$: rx.Observable<boolean> =
 
 /**
  *
+ * This registers tasks and the task factory into the Rewhitt system. This way
+ * Rewhitt knows how to construct tasks.
+ *
+ */
+
+
+/**
+ *
  * ReWhitt controller.
  *
  */
@@ -88,6 +96,7 @@ export const controller: Controller = new Controller({
   controllerName: "theController",
   pg: pg,
   redis: redis,
+  taskRegistry: taskRegistry,
   log: controllerLogger
 })
 
@@ -99,8 +108,8 @@ export const controller: Controller = new Controller({
 export const client: Client = new Client({
   rewhittId: "test",
   clientName: "theClient",
-  pg: pg,
   redis: redis,
+  taskRegistry: taskRegistry,
   log: clientLogger
 })
 

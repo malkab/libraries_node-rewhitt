@@ -18,19 +18,13 @@ describe("Clear the database", function() {
     testCaseName: "Clear the database",
 
     observables: [
-
       clearDatabase$,
-
       redis.flushall$()
-
     ],
 
     assertions: [
-
       (o: boolean) => expect(o, "clearDatabase$").to.be.true,
-
       (o: boolean) => expect(o, "flushall$").to.be.equal("OK")
-
     ]
 
   })
@@ -49,15 +43,11 @@ describe("Initialize Rewhitt", function() {
     testCaseName: "Initialize Rewhitt",
 
     observables: [
-
       controller.init$()
-
     ],
 
     assertions: [
-
       (o: any) => expect(o, "Initialize Rewhitt").to.be.true
-
     ],
 
     verbose: false
@@ -78,17 +68,47 @@ describe("Post a task", function() {
     testCaseName: "Post a task",
 
     observables: [
-
-      client.post(taskA)
-
+      client.post$(taskA),
+      client.post$(taskA)
     ],
 
     assertions: [
 
       (o: any) => {
-
         console.log("D: jeje", o);
+      },
 
+      (o: any) => {
+        console.log("D: jeje", o);
+      }
+
+    ],
+
+    verbose: true
+
+  })
+
+})
+
+/**
+ *
+ * Queue a task.
+ *
+ */
+describe("Queue a task", function() {
+
+  rxMochaTests({
+
+    testCaseName: "Queue a task",
+
+    observables: [
+      client.queue$(taskA)
+    ],
+
+    assertions: [
+
+      (o: any) => {
+        console.log("D: jeje", o);
       }
 
     ],

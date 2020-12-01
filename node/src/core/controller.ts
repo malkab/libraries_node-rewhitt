@@ -10,10 +10,15 @@ import * as rx from "rxjs";
 
 import * as rxo from "rxjs/operators";
 
-import { RedisMessage } from "./redismessages/redismessage";
+import { Command } from "./commands/command";
 
-import { redisMessageFactory } from './redismessages/redismessagefactory';
-import { PostRedisMessage } from './redismessages/postredismessage';
+import { commandFactory } from './commands/commandfactory';
+
+import { PostCommand } from './commands/postcommand';
+
+import { QueueCommand } from './commands/queuecommand';
+
+import { IRewhittTaskRegistry } from "./irewhitttaskregistry";
 
 /**
  *
@@ -21,6 +26,13 @@ import { PostRedisMessage } from './redismessages/postredismessage';
  *
  */
 export class Controller {
+
+  /**
+   *
+   * The task registration.
+   *
+   */
+  private _taskRegistry: IRewhittTaskRegistry;
 
   /**
    *
@@ -80,12 +92,14 @@ export class Controller {
       controllerName,
       pg,
       redis,
+      taskRegistry,
       log
     }: {
       rewhittId: string;
       controllerName: string;
       pg: RxPg;
       redis: RxRedis;
+      taskRegistry: IRewhittTaskRegistry;
       log?: NodeLogger;
   }) {
 
@@ -93,49 +107,106 @@ export class Controller {
     this._controllerName = controllerName;
     this._pg = pg;
     this._redis = redis;
+    this._taskRegistry = taskRegistry;
     this._log = log;
 
-    // The blocking connection for the queue client::controller
-    // this._clientControllerQueue = new RxRedisQueue(this._redis);
+    // To store the task retrieved from the client > controller message loop
+    let clientControllerCommand: PostCommand | QueueCommand;
 
     // Start client > controller message loop
     RxRedisQueue.loop$({
       redis: this._redis.blockingClone(),
       keys: this.clientControllerQueueName,
-      constructorFunc: (params: any) => redisMessageFactory({
-        ...params,
-        rewhittId: this._rewhittId,
-        pg: this._pg,
-        redis: this._redis,
-        log: this._log
-      })
+      constructorFunc: (params: any) => commandFactory({
+          ...params,
+          taskRegistry: this._taskRegistry,
+          rewhittId: this._rewhittId,
+          log: this._log
+        })
     })
-    .pipe(
+    // .pipe(
 
-      rxo.concatMap((o: any) => {
+    //   rxo.concatMap((o: any) => {
 
-        return o.object.process$();
+    //     console.log("D: je 8989", o);
 
-      })
+    //     clientControllerMessage = o.object;
+    //     o.object.process$({ pg: this._pg, redis: this._redis });
 
-    )
+    //   }),
+
+    //   // rxo.catchError((e: Error) => {
+
+    //   //   console.log("D: Njjjj");
+
+    //   //   this.log?.logError({
+    //   //     moduleName: "controller",
+    //   //     methodName: "client > controller loop$",
+    //   //     message: `${clientControllerMessage.commandType} error: ${e.message}`,
+    //   //     payload: { messageType: clientControllerMessage.commandType, error: e.message }
+    //   //   });
+
+    //   //   return rx.of(`error at loop: ${e.message}`);
+
+    //   // }),
+
+    //   rxo.retry()
+
+    // )
     .subscribe(
 
       (o: any) => {
 
-        console.log("D: jeje", o);
+        console.log("D: ken3333", o);
+
+        o.object.process$({ pg: this._pg, redis: this._redis })
+        .subscribe(
+
+          (o: any) => {
+
+            this.log?.logInfo({
+              moduleName: "controller",
+              methodName: "client > controller loop$",
+              message: "`${clientControllerMessage.commandType} processed`"
+            })
+
+          },
+
+          (e: Error) => {
+
+            console.log("D: n3323342 kkkk");
+
+            this.log?.logError({
+              moduleName: "controller",
+              methodName: "client > controller loop$",
+              message: `reaching error processing, should not happen, terminating loop`
+            });
+
+          },
+
+        )
 
       },
 
       (e: Error) => {
 
-        throw new Error(`RxRedisQueue client > controller error, should not happen: ${e.message}`);
+        console.log("D: n3323342 kkkk");
+
+        this.log?.logError({
+          moduleName: "controller",
+          methodName: "client > controller loop$",
+          message: `reaching error processing, should not happen, terminating loop`
+        });
 
       },
 
       () => {
 
-        throw new Error("RxRedisQueue client > controller completed, should not happen");
+        this.log?.logError({
+          moduleName: "controller",
+          methodName: "client > controller loop$",
+          message: `loop completing, should not happen`
+        })
 
       }
 
@@ -181,13 +252,15 @@ export class Controller {
        * AnalysisTasks.
        *
        */
-      create table rewhitt_${this.rewhittId}.tasks(
+      create table rewhitt_${this.rewhittId}.task(
         task_id varchar(64) primary key,
         task_type varchar(64),
         cached_status varchar(64) references rewhitt_${this.rewhittId}.action(action_id),
         cached_status_messages jsonb[],
         worker_id varchar(100) references rewhitt_${this.rewhittId}.worker(worker_id),
+        created timestamp,
         posted timestamp,
+        queued timestamp,
         start timestamp,
         modification timestamp,
         completion timestamp,

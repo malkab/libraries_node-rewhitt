@@ -1,8 +1,9 @@
-import { Task } from "../src/index";
+import { Task, IRewhittTaskRegistry } from "../src/index";
 
 import * as rx from "rxjs";
 
 import * as rxo from "rxjs/operators";
+
 import { NodeLogger } from "@malkab/node-logger";
 
 /**
@@ -20,24 +21,30 @@ import { NodeLogger } from "@malkab/node-logger";
  * function.
  *
  */
-export const taskFactory: (params: any) => TaskA | TaskB = (params: any) => {
+export const taskFactory: (params: any, log?: NodeLogger) => rx.Observable<TaskA | TaskB> =
+(params: any, log?: NodeLogger) => {
 
-  if(params.taskId === "TASKA") {
+  if(params.taskType === "TASKA") {
 
-    return new TaskA(params);
-
-  }
-
-  if(params.taskId === "TASKB") {
-
-    return new TaskB(params);
+    return rx.of(new TaskA({ ...params, log: log }));
 
   }
 
-  throw new Error(`udefined taskId ${params.taskId}: ${params}`);
+  if(params.taskType === "TASKB") {
+
+    return rx.of(new TaskB({ ...params, log: log }));
+
+  }
+
+  throw new Error(`undefined taskId ${params.taskId}: ${params}`);
 
 }
 
+/**
+ *
+ * A Task.
+ *
+ */
 export class TaskA extends Task {
 
   /**
@@ -98,10 +105,8 @@ export class TaskA extends Task {
 
         return {
           ...o,
-          additionalParams: {
-            itemA: this._itemA,
-            itemB: this._itemB
-          }
+          itemA: this._itemA,
+          itemB: this._itemB
         };
 
       })
@@ -112,6 +117,11 @@ export class TaskA extends Task {
 
 }
 
+/**
+ *
+ * Another Task.
+ *
+ */
 export class TaskB extends Task {
 
   /**
@@ -172,16 +182,30 @@ export class TaskB extends Task {
 
         return {
           ...o,
-          additionalParams: {
-            itemC: this._itemC,
-            itemD: this._itemD
-          }
+          itemC: this._itemC,
+          itemD: this._itemD
         };
 
       })
 
     )
 
+  }
+
+}
+
+/**
+ *
+ * The registration.
+ *
+ */
+export const taskRegistry: IRewhittTaskRegistry = {
+
+  taskFactory: taskFactory,
+
+  tasks: {
+    "TASKA": TaskA,
+    "TASKB": TaskB
   }
 
 }

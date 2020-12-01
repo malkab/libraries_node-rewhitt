@@ -4,4 +4,6 @@ export * from "./core/controller";
 
 export * from "./core/task";
 
-export * from "./core/redismessages/redismessage";
+export * from "./core/commands/command";
+
+export * from "./core/irewhitttaskregistry";
