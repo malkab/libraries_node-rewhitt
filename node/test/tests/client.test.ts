@@ -2,7 +2,7 @@ import "mocha";
 
 import { expect } from "chai";
 
-import { clearDatabase$, pg, redis, controller, client, taskA } from "./common";
+import { clearDatabase$, pg, redis, controller, client, taskA, taskB, anotherTaskB } from "./common";
 
 import { rxMochaTests } from "@malkab/ts-utils";
 
@@ -69,22 +69,37 @@ describe("Post a task", function() {
 
     observables: [
       client.post$(taskA),
-      client.post$(taskA)
+      client.post$(taskA),
+      client.post$(taskA),
+      client.post$(taskB),
+      client.post$(taskB)
     ],
 
     assertions: [
 
       (o: any) => {
-        console.log("D: jeje", o);
+        expect(o, "1st POST taskA").to.be.greaterThan(0);
       },
 
       (o: any) => {
-        console.log("D: jeje", o);
+        expect(o, "2nd POST taskA").to.be.greaterThan(0)
+      },
+
+      (o: any) => {
+        expect(o, "3rd POST taskA").to.be.greaterThan(0)
+      },
+
+      (o: any) => {
+        expect(o, "1st POST taskB").to.be.greaterThan(0)
+      },
+
+      (o: any) => {
+        expect(o, "2nd POST taskB").to.be.greaterThan(0)
       }
 
     ],
 
-    verbose: true
+    verbose: false
 
   })
 
@@ -102,18 +117,43 @@ describe("Queue a task", function() {
     testCaseName: "Queue a task",
 
     observables: [
-      client.queue$(taskA)
+      client.queue$(taskA),
+      client.queue$(taskA),
+      client.queue$(taskA),
+      client.queue$(taskB),
+      client.queue$(taskB),
+      client.queue$(anotherTaskB)
     ],
 
     assertions: [
 
       (o: any) => {
-        console.log("D: jeje", o);
+        expect(o, "1st QUEUE taskA").to.be.greaterThan(0);
+      },
+
+      (o: any) => {
+        expect(o, "2nd QUEUE taskA").to.be.greaterThan(0)
+      },
+
+      (o: any) => {
+        expect(o, "3rd QUEUE taskA").to.be.greaterThan(0)
+      },
+
+      (o: any) => {
+        expect(o, "1st QUEUE taskB").to.be.greaterThan(0)
+      },
+
+      (o: any) => {
+        expect(o, "2nd QUEUE taskB").to.be.greaterThan(0)
+      },
+
+      (o: any) => {
+        expect(o, "1st QUEUE anotherTaskB").to.be.greaterThan(0)
       }
 
     ],
 
-    verbose: true
+    verbose: false
 
   })
 

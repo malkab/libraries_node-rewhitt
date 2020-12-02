@@ -33,6 +33,7 @@ export class Controller {
    *
    */
   private _taskRegistry: IRewhittTaskRegistry;
+  get taskRegistry(): IRewhittTaskRegistry { return this._taskRegistry };
 
   /**
    *
@@ -63,8 +64,8 @@ export class Controller {
    * Rewhitt client name.
    *
    */
-  private _controllerName: string;
-  get controllerName(): string { return this._controllerName }
+  private _controllerId: string;
+  get controllerId(): string { return this._controllerId }
 
   /**
    *
@@ -89,14 +90,14 @@ export class Controller {
    */
   constructor({
       rewhittId,
-      controllerName,
+      controllerId,
       pg,
       redis,
       taskRegistry,
       log
     }: {
       rewhittId: string;
-      controllerName: string;
+      controllerId: string;
       pg: RxPg;
       redis: RxRedis;
       taskRegistry: IRewhittTaskRegistry;
@@ -104,93 +105,57 @@ export class Controller {
   }) {
 
     this._rewhittId = rewhittId;
-    this._controllerName = controllerName;
+    this._controllerId = `CONTROLLER::${controllerId}`;
     this._pg = pg;
     this._redis = redis;
     this._taskRegistry = taskRegistry;
     this._log = log;
 
-    // To store the task retrieved from the client > controller message loop
-    let clientControllerCommand: PostCommand | QueueCommand;
-
     // Start client > controller message loop
-    RxRedisQueue.loop$({
+    RxRedisQueue.get$({
       redis: this._redis.blockingClone(),
-      keys: this.clientControllerQueueName,
-      constructorFunc: (params: any) => commandFactory({
-          ...params,
+      keys: this.clientControllerQueueName
+    }).pipe(
+
+      // Get the command from the Redis
+      rxo.map((o: any) => {
+
+        return commandFactory({
+          ...JSON.parse(o[1]),
+          rewhittId: this.rewhittId,
           taskRegistry: this._taskRegistry,
-          rewhittId: this._rewhittId,
           log: this._log
         })
-    })
-    // .pipe(
 
-    //   rxo.concatMap((o: any) => {
+      }),
 
-    //     console.log("D: je 8989", o);
+      // Process the command, shielding the loop from errors
+      rxo.switchMap((o: Command) => {
 
-    //     clientControllerMessage = o.object;
-    //     o.object.process$({ pg: this._pg, redis: this._redis });
+        return o.process$({ pg: this.pg, redis: this.redis })
+        .pipe(
 
-    //   }),
+          rxo.catchError((o: Error) => rx.of(o.message))
 
-    //   // rxo.catchError((e: Error) => {
+        )
 
-    //   //   console.log("D: Njjjj");
+      }),
 
-    //   //   this.log?.logError({
-    //   //     moduleName: "controller",
-    //   //     methodName: "client > controller loop$",
-    //   //     message: `${clientControllerMessage.commandType} error: ${e.message}`,
-    //   //     payload: { messageType: clientControllerMessage.commandType, error: e.message }
-    //   //   });
+      rxo.repeat()
 
-    //   //   return rx.of(`error at loop: ${e.message}`);
-
-    //   // }),
-
-    //   rxo.retry()
-
-    // )
-    .subscribe(
+    ).subscribe(
 
       (o: any) => {
 
-        console.log("D: ken3333", o);
-
-        o.object.process$({ pg: this._pg, redis: this._redis })
-        .subscribe(
-
-          (o: any) => {
-
-            this.log?.logInfo({
-              moduleName: "controller",
-              methodName: "client > controller loop$",
-              message: "`${clientControllerMessage.commandType} processed`"
-            })
-
-          },
-
-          (e: Error) => {
-
-            console.log("D: n3323342 kkkk");
-
-            this.log?.logError({
-              moduleName: "controller",
-              methodName: "client > controller loop$",
-              message: `reaching error processing, should not happen, terminating loop`
-            });
-
-          },
-
-        )
+        this.log?.logInfo({
+          moduleName: "controller",
+          methodName: "client > controller loop$",
+          message: "`${clientControllerMessage.commandType} processed`"
+        })
 
       },
 
       (e: Error) => {
-
-        console.log("D: n3323342 kkkk");
 
         this.log?.logError({
           moduleName: "controller",
@@ -255,8 +220,7 @@ export class Controller {
       create table rewhitt_${this.rewhittId}.task(
         task_id varchar(64) primary key,
         task_type varchar(64),
-        cached_status varchar(64) references rewhitt_${this.rewhittId}.action(action_id),
-        cached_status_messages jsonb[],
+        status varchar(64) references rewhitt_${this.rewhittId}.action(action_id),
         worker_id varchar(100) references rewhitt_${this.rewhittId}.worker(worker_id),
         created timestamp,
         posted timestamp,
@@ -264,7 +228,7 @@ export class Controller {
         start timestamp,
         modification timestamp,
         completion timestamp,
-        additional_params jsonb
+        params jsonb
       );
 
       /**
@@ -307,7 +271,10 @@ export class Controller {
       values ('INIT', 'Rewhitt initialization');
 
       insert into rewhitt_${this.rewhittId}.action
-      values ('POST', 'Action POST');
+      values ('POST', 'POST command');
+
+      insert into rewhitt_${this.rewhittId}.action
+      values ('QUEUE', 'QUEUE command');
 
       /**
        *
@@ -315,7 +282,7 @@ export class Controller {
        *
        */
       insert into rewhitt_${this.rewhittId}.log
-      values (now(), 'CONTROLLER', 'INFO', 'INIT');
+      values (now(), '${this.controllerId}', 'INFO', 'INIT');
 
       commit;
     `).

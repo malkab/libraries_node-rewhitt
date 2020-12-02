@@ -10,7 +10,7 @@ import * as rxo from "rxjs/operators";
 
 import { Client, Controller } from "../../src/index";
 
-import { TaskA, taskRegistry } from "../demotasklibrary";
+import { TaskA, TaskB, taskRegistry } from "../demotasklibrary";
 
 /**
  *
@@ -26,14 +26,14 @@ import { TaskA, taskRegistry } from "../demotasklibrary";
  */
 export const controllerLogger: NodeLogger = new NodeLogger({
   appName: "controller",
-  consoleOut: true,
+  consoleOut: false,
   minLogLevel: ELOGLEVELS.DEBUG,
-  logFilePath: "/logs/controller"
+  logFilePath: "/logs/controller",
 })
 
 export const clientLogger: NodeLogger = new NodeLogger({
   appName: "client",
-  consoleOut: true,
+  consoleOut: false,
   minLogLevel: ELOGLEVELS.DEBUG,
   logFilePath: "/logs/client"
 })
@@ -93,7 +93,7 @@ export const clearDatabase$: rx.Observable<boolean> =
  */
 export const controller: Controller = new Controller({
   rewhittId: "test",
-  controllerName: "theController",
+  controllerId: "theController",
   pg: pg,
   redis: redis,
   taskRegistry: taskRegistry,
@@ -107,7 +107,7 @@ export const controller: Controller = new Controller({
  */
 export const client: Client = new Client({
   rewhittId: "test",
-  clientName: "theClient",
+  clientId: "theClient",
   redis: redis,
   taskRegistry: taskRegistry,
   log: clientLogger
@@ -122,5 +122,19 @@ export const taskA: TaskA = new TaskA({
   taskId: "aTaskA",
   itemA: 33,
   itemB: "33",
+  log: clientLogger
+})
+
+export const taskB: TaskB = new TaskB({
+  taskId: "aTaskB",
+  itemC: 33,
+  itemD: "33",
+  log: clientLogger
+})
+
+export const anotherTaskB: TaskB = new TaskB({
+  taskId: "anotherTaskB",
+  itemC: 44,
+  itemD: "44",
   log: clientLogger
 })

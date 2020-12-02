@@ -14,7 +14,7 @@ export interface IRewhittTaskRegistry {
    * The factory function.
    *
    */
-  taskFactory: (params: any, log?: NodeLogger) => rx.Observable<any>;
+  taskFactory$: (params: any, log?: NodeLogger) => rx.Observable<any>;
   /**
    *
    * The map of tasks to be recognized by the Rewhitt instance. They must extend

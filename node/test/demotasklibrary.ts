@@ -6,6 +6,8 @@ import * as rxo from "rxjs/operators";
 
 import { NodeLogger } from "@malkab/node-logger";
 
+import { ESTATUS } from "../src/core/estatus";
+
 /**
  *
  * This is a demo library defining all classes to define a Rewhitt
@@ -21,7 +23,7 @@ import { NodeLogger } from "@malkab/node-logger";
  * function.
  *
  */
-export const taskFactory: (params: any, log?: NodeLogger) => rx.Observable<TaskA | TaskB> =
+export const taskFactory$: (params: any, log?: NodeLogger) => rx.Observable<TaskA | TaskB> =
 (params: any, log?: NodeLogger) => {
 
   if(params.taskType === "TASKA") {
@@ -72,17 +74,20 @@ export class TaskA extends Task {
       taskId,
       itemA,
       itemB,
+      status,
       log
     }: {
       taskId: string;
       itemA: number;
       itemB: string;
+      status?: ESTATUS;
       log?: NodeLogger;
   }) {
 
     super({
       taskId: taskId,
       taskType: "TASKA",
+      status: status,
       log: log
     });
 
@@ -149,17 +154,20 @@ export class TaskB extends Task {
       taskId,
       itemC,
       itemD,
+      status,
       log
     }: {
       taskId: string;
       itemC: number;
       itemD: string;
+      status?: ESTATUS;
       log?: NodeLogger;
   }) {
 
     super({
       taskId: taskId,
       taskType: "TASKB",
+      status: status,
       log: log
     });
 
@@ -201,7 +209,7 @@ export class TaskB extends Task {
  */
 export const taskRegistry: IRewhittTaskRegistry = {
 
-  taskFactory: taskFactory,
+  taskFactory$: taskFactory$,
 
   tasks: {
     "TASKA": TaskA,

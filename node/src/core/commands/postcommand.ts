@@ -18,6 +18,8 @@ import { RxRedis } from '@malkab/rxredis';
 
 import { IRewhittTaskRegistry } from '../irewhitttaskregistry';
 
+import { ESTATUS } from "../estatus";
+
 /**
  *
  * POST command.
@@ -111,9 +113,22 @@ export class PostCommand extends Command {
     })
 
     // Create the task from the serialTask parameters
-    return this._taskRegistry.taskFactory({ ...this.serialTask }, this._log).pipe(
+    return this._taskRegistry.taskFactory$({ ...this.serialTask }, this._log).pipe(
 
-      rxo.concatMap((o: Task) => o.pgInsert$(pg, { rewhittId: this._rewhittId })),
+      // Set the task status to POST, insert it into the DB, and update its
+      // posted timestamp
+      rxo.concatMap((o: Task) => {
+
+        o.status = ESTATUS.POST;
+        return rx.concat(
+          o.pgInsert$(pg, { rewhittId: this._rewhittId }),
+          pg.executeParamQuery$(`
+            update rewhitt_${this._rewhittId}.task
+            set posted = to_timestamp(${Date.now() / 1000.0})
+            where task_id = '${o.taskId}';`)
+        )
+
+      }),
 
       rxo.catchError((o: any) => {
 

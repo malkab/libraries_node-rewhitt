@@ -16,6 +16,8 @@ import { RxRedis } from '@malkab/rxredis';
 
 import { IRewhittTaskRegistry } from '../irewhitttaskregistry';
 
+import { ESTATUS } from "../estatus";
+
 /**
  *
  * A QUEUE message.
@@ -108,44 +110,51 @@ export class QueueCommand extends Command {
       payload: { taskId: this.serialTask.taskId, taskType: this.serialTask.taskType }
     })
 
-    // Create the task from the serialTask parameters
-    return this._taskRegistry.taskFactory({ ...this.serialTask }, this._log).pipe(
+    // To store the generated task
+    let t: Task;
 
+    // Create the task from the serialTask parameters
+    return this._taskRegistry.taskFactory$({ ...this.serialTask }, this._log).pipe(
+
+      // Check if the task is already posted
       rxo.concatMap((o: Task) => {
 
-        console.log("D: nen23354", o);
+        t = o;
 
-        return Task.get$(pg, this._rewhittId, this._taskRegistry, o.taskId,
-          this._log);
+        console.log("D: 88888", o);
+
+        // Check if the task already exists
+        return Task.get$(pg, this._rewhittId, this._taskRegistry,
+          o.taskId, this._log);
+
+      }),
+
+      // Not found, set new status and insert
+      rxo.catchError((o: any) => {
+
+        console.log("D: Nee33 ", o);
+
+        return t.pgInsert$(pg, { rewhittId: this._rewhittId });
+
+      }),
+
+      // Update
+      rxo.concatMap((o: any) => {
+
+        console.log("D: je222", o);
+
+        t.status = ESTATUS.QUEUE;
+        return rx.concat(
+          t.pgUpdate$(pg, { rewhittId: this._rewhittId }),
+          pg.executeParamQuery$(`
+          update rewhitt_${this._rewhittId}.task
+          set queued = to_timestamp(${Date.now() / 1000.0})
+          where task_id = '${t.taskId}';`)
+        )
 
       })
 
     )
-
-      //pgInsert$(pg, { rewhittId: this._rewhittId })),
-
-    // // Check if the task is already registered
-    // return rx.zip(
-
-    //   // Insert the task on QUEUE status or update it from
-    //   pg.executeParamQuery$(`
-    //     insert into rewhitt_${this._rewhittId}.task(
-    //       task_id, task_type, cached_status, queued, additional_params)
-    //     values ($1, $2, $3, to_timestamp($4), $5)
-    //     on conflict task_pkey`,
-    //     {
-    //       params: [ this._serialTask.taskId, this._serialTask.taskType,
-    //         this.commandType, Date.now() / 1000.0, this._serialTask ]
-    //     }),
-
-    //   pg.executeParamQuery$(`
-    //     insert into rewhitt_${this._rewhittId}.log
-    //     values (to_timestamp($1), $2, $3, $4, $5)`,
-    //     {
-    //       params: [ Date.now() / 1000.0, this.to.toUpperCase(), 'INFO',
-    //       this.commandType, this._serialTask ]
-    //     })
-    // )
 
   }
 

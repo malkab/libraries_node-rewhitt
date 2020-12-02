@@ -1,7 +1,5 @@
 import { ECOMMANDTYPE } from "./ecommandtype";
 
-import { IRedisMessageObject } from "@malkab/rxredis";
-
 import * as rx from "rxjs";
 
 import { NodeLogger } from '@malkab/node-logger';
@@ -17,7 +15,7 @@ import { IRewhittTaskRegistry } from '../irewhitttaskregistry';
  * Models a Rewhitt client message. All message must inherit this class.
  *
  */
-export class Command implements IRedisMessageObject {
+export class Command {
 
   /**
    *
