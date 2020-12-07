@@ -32,7 +32,7 @@ Steps:
 
 - if for TGZ inter-repo deployment, use **yarn distribute-pack**;
 
-- test **yarn publish**, changing version with **yarn version** if needed. Start new projects always at **version 1.0.0** and start working on it at the fix number no matter what the changes are. **0 or odd** minor versions means developing versions, never go out of that until it is considered stable, at which point move to an **even** minor version number and make fixes to that. Only change major version changes on truly backward incompatible changes. **LET THE CODE MATURE BEFORE COMITTING EVEN VERSION NUMBERS**;
+- test **yarn publish**, changing version with **yarn version** if needed. Start new projects always at **version 1.0.0** and start working on it at the fix number no matter what the changes are. **0 or odd** minor versions means developing versions, never go out of that until it is considered stable, at which point move to an **even** minor version number and make fixes to that. Only change major version changes on truly backward incompatible changes. **LET THE CODE MATURE BEFORE COMITTING EVEN VERSION NUMBERS**. If the first publish outputs an error about not finding the Git credencials, publish with **yarn publish --no-git-tag-version**;
 
 - close the Git Flow feature and go back to **develop**, if any. Get a clear idea of changes in the current version;
 
