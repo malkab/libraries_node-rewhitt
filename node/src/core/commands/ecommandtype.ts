@@ -17,5 +17,36 @@ export enum ECOMMANDTYPE {
    * QUEUE a task: put the task on its queue for the workers to work on them.
    *
    */
-  QUEUE = "QUEUE"
+  QUEUE = "QUEUE",
+  /**
+   *
+   * RUN a task: command the run of a task to a worker. Sent to controller >
+   * workers task queues.
+   *
+   */
+  RUN = "RUN",
+  /**
+   *
+   * TASKPROGRESS from a task: reports progress in a task.
+   *
+   */
+  TASKPROGRESS = "TASKPROGRESS",
+  /**
+   *
+   * TASKFINISH from a task: reports finishing a task.
+   *
+   */
+  TASKFINISH = "TASKFINISH",
+  /**
+   *
+   * TASKERROR from a task: reports an error in a task.
+   *
+   */
+  TASKERROR = "TASKERROR",
+  /**
+   *
+   * Worker heartbeat.
+   *
+   */
+  WORKERHEARTBEAT = "WORKERHEARTBEAT"
 }

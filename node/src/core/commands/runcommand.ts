@@ -25,7 +25,7 @@ import { ESTATUS } from "../estatus";
  * POST command.
  *
  */
-export class PostCommand extends Command {
+export class RunCommand extends Command {
 
   /**
    *
@@ -70,7 +70,7 @@ export class PostCommand extends Command {
 
     super({
       rewhittId: rewhittId,
-      commandType: ECOMMANDTYPE.POST,
+      commandType: ECOMMANDTYPE.RUN,
       taskRegistry: taskRegistry,
       from: from,
       to: to
@@ -95,9 +95,6 @@ export class PostCommand extends Command {
       processingSubsystem: string;
   }): rx.Observable<any> {
 
-    // To backup the task
-    let t: Task;
-
     // Create the task from the serialTask parameters
     return this._taskRegistry.taskFactory$({
       ...this.serialTask,
@@ -106,37 +103,7 @@ export class PostCommand extends Command {
 
       // Set the task status to POST, insert it into the DB, and update its
       // posted timestamp
-      rxo.concatMap((o: Task) => {
-
-        t = o;
-        t.status = ESTATUS.POST;
-
-        return rx.concat(
-
-          o.pgInsert$(pg, { rewhittId: this._rewhittId }).pipe(
-
-            rxo.map((o: any) =>
-              `task ${t.taskTaxonomy}: inserted at PG`)
-
-          ),
-
-          t.updatePostedTimestamp$(pg)
-
-        )
-
-      }),
-
-      rxo.catchError((o: any) => {
-
-        if (o.OrmErrorCode === OrmError.EORMERRORCODES.DUPLICATED) {
-
-          throw new Error(`task ${t.taskTaxonomy}: already in the system`);
-
-        }
-
-        throw new Error(`task ${t.taskTaxonomy}: unexpected error: ${o.message}`);
-
-      })
+      rxo.concatMap((o: Task) => o.run$({ pg: pg, redis: redis }))
 
     )
 

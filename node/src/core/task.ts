@@ -2,6 +2,8 @@ import { NodeLogger } from '@malkab/node-logger';
 
 import { RxPg, PgOrm } from "@malkab/rxpg";
 
+import { RxRedis } from '@malkab/rxredis';
+
 import * as rx from "rxjs";
 
 import * as rxo from "rxjs/operators";
@@ -9,6 +11,12 @@ import * as rxo from "rxjs/operators";
 import { ESTATUS } from './estatus';
 
 import { IRewhittTaskRegistry } from './irewhitttaskregistry';
+
+import { TaskProgressCommand } from "./commands/taskprogresscommand";
+
+import { TaskFinishCommand } from "./commands/taskfinishcommand";
+
+import { TaskErrorCommand } from "./commands/taskerrorcommand";
 
 /**
  *
@@ -25,25 +33,117 @@ export class Task implements PgOrm.IPgOrm<Task>{
 
   /**
    *
-   * The log.
+   * The Rewhitt ID.
    *
    */
-  protected _log: NodeLogger | undefined;
+  protected _rewhittId: string;
+  get rewhittId(): string { return this._rewhittId }
+
+  /**
+   *
+   * The Rewhitt ID.
+   *
+   */
+  protected _taskRegistry: IRewhittTaskRegistry;
+  get taskRegistry(): IRewhittTaskRegistry { return this._taskRegistry }
+
+  /**
+   *
+   * Gets a composed string with taskType/taskId
+   *
+   */
+  get taskTaxonomy(): string { return `${this.taskType}/${this.taskId}` }
 
   /**
    *
    * The status of the task.
    *
    */
-  protected _status: ESTATUS | undefined;
-  get status(): ESTATUS | undefined { return this._status }
-  set status(status: ESTATUS | undefined) { this._status = status }
+  protected _status: ESTATUS;
+  get status(): ESTATUS { return this._status }
+  set status(status: ESTATUS) { this._status = status }
 
   /**
    *
    * The worker ID.
    *
    */
+  protected _workerId: string | undefined;
+  get workerId(): string | undefined { return this._workerId }
+  set workerId(workerId: string | undefined) { this._workerId = workerId }
+
+  /**
+   *
+   * The name of the task to worker queue.
+   *
+   */
+  get toWorkerTaskQueueName(): string {
+    return `rewhitt::${this.rewhittId}::task::${this.taskType}` }
+
+  /**
+   *
+   * Created.
+   *
+   */
+  protected _created: number | undefined;
+  get created(): number | undefined { return this._created }
+
+  /**
+   *
+   * Posted.
+   *
+   */
+  protected _posted: number | undefined;
+  get posted(): number | undefined { return this._posted }
+
+  /**
+   *
+   * Modification.
+   *
+   */
+  protected _modification: number | undefined;
+  get modification(): number | undefined { return this._modification }
+
+    /**
+   *
+   * Queued.
+   *
+   */
+  protected _queued: number | undefined;
+  get queued(): number | undefined { return this._queued }
+
+  /**
+   *
+   * Last progress.
+   *
+   */
+  protected _lastProgress: number | undefined;
+  get lastProgress(): number | undefined { return this._lastProgress }
+
+  /**
+   *
+   * Error.
+   *
+   */
+  protected _error: number | undefined;
+  get error(): number | undefined { return this._error }
+
+  /**
+   *
+   * Completion.
+   *
+   */
+  protected _finish: number | undefined;
+  get finish(): number | undefined { return this._finish }
+
+  /**
+   *
+   * Progress.
+   *
+   */
+  protected _progress: number | undefined;
+  get progress(): number | undefined { return this._progress }
+  set progress(progress: number | undefined) { this._progress = progress }
 
   /**
    *
@@ -67,21 +167,51 @@ export class Task implements PgOrm.IPgOrm<Task>{
    *
    */
   constructor({
+      rewhittId,
+      taskRegistry,
       taskId,
       taskType,
       status,
-      log
+      workerId,
+      modification,
+      created,
+      posted,
+      queued,
+      lastProgress,
+      error,
+      finish,
+      progress
     }: {
+      rewhittId: string;
+      taskRegistry: IRewhittTaskRegistry;
       taskId: string;
       taskType: string;
-      status?: ESTATUS;
-      log: NodeLogger;
+      status: ESTATUS;
+      workerId?: string;
+      modification?: number;
+      created?: number;
+      posted?: number;
+      queued?: number;
+      lastProgress?: number;
+      error?: number;
+      finish?: number;
+      progress?: number;
   }) {
 
+    this._rewhittId = rewhittId;
+    this._taskRegistry = taskRegistry;
     this._taskId = taskId;
     this._taskType = taskType;
     this._status = status;
-    this._log = log;
+    this._workerId = workerId;
+    this._modification = modification;
+    this._created = created;
+    this._posted = posted;
+    this._queued = queued;
+    this._lastProgress = lastProgress;
+    this._error = error;
+    this._finish = finish;
+    this._progress = progress;
 
     PgOrm.generateDefaultPgOrmMethods(this, {
       pgInsert$: {
@@ -99,13 +229,17 @@ export class Task implements PgOrm.IPgOrm<Task>{
         sql: (additionalParams) => `
           update rewhitt_${additionalParams.rewhittId}.task
           set
-            modification = to_timestamp($1),
-            params = $2,
-            status = $3
+            modification = now(),
+            worker_id = $5,
+            params = $1,
+            status = $2,
+            progress = $4
+          where task_id = $3
           ;
         `,
         params$: () => this.serial$().pipe(
-          rxo.map((o: any) => [ Date.now()/1000.0, o, this._status ])
+          rxo.map((o: any) => [ o, this._status,
+            this._taskId, this._progress, this.workerId ])
         )
       },
     })
@@ -118,10 +252,8 @@ export class Task implements PgOrm.IPgOrm<Task>{
    *
    */
   public static get$(pg: RxPg, rewhittId: string,
-    taskRegistry: IRewhittTaskRegistry, taskId: string, log?: NodeLogger
+    taskRegistry: IRewhittTaskRegistry, taskId: string
   ): rx.Observable<Task> {
-
-    console.log("D: 33333 uuu", taskId);
 
     return PgOrm.select$<Task>({
       pg: pg,
@@ -132,10 +264,12 @@ export class Task implements PgOrm.IPgOrm<Task>{
       type: Task,
       newFunction: (params) => {
 
-        console.log("D: 5555", params);
         const t: any = taskRegistry.taskFactory$({
-          ...params.p, status: params.status }, log);
-        console.log("D: 1111", t);
+          ...params.p,
+          status: params.status,
+          rewhittId: rewhittId
+        });
+
         return t;
 
       },
@@ -153,8 +287,219 @@ export class Task implements PgOrm.IPgOrm<Task>{
 
     return rx.of({
       taskId: this.taskId,
-      taskType: this.taskType
-    })
+      taskType: this.taskType,
+      progress: this.progress,
+      workerId: this.workerId
+    });
+
+  }
+
+  /**
+   *
+   * Run$, here goes the logic of the task.
+   *
+   */
+  public run$({
+      pg,
+      redis
+    }: {
+      pg: RxPg;
+      redis: RxRedis;
+  }): rx.Observable<TaskProgressCommand | TaskFinishCommand | TaskErrorCommand> {
+
+    throw new Error(`undefined method run$ for task ${this.taskTaxonomy}`)
+
+  }
+
+  /**
+   *
+   * Put a TASKPROGRESS command into the controller queue.
+   *
+   */
+  public sendTaskProgressCommand$(): rx.Observable<TaskProgressCommand> {
+
+    return this.serial$()
+    .pipe(
+
+      rxo.map((o: any) => new TaskProgressCommand({
+        from: this.workerId ? this.workerId : "unknown worker",
+        to: "controller",
+        rewhittId: this.rewhittId,
+        serialTask: o,
+        taskRegistry: this.taskRegistry
+      }))
+
+    )
+
+  }
+
+  /**
+   *
+   * Put a TASKFINISH command into the controller queue.
+   *
+   */
+  public sendTaskFinishCommand$(): rx.Observable<TaskFinishCommand> {
+
+    return this.serial$()
+    .pipe(
+
+      rxo.map((o: any) => new TaskFinishCommand({
+        from: this.workerId ? this.workerId : "unknown worker",
+        to: "controller",
+        rewhittId: this.rewhittId,
+        serialTask: o,
+        taskRegistry: this.taskRegistry
+      }))
+
+    )
+
+  }
+
+  /**
+   *
+   * Put a TASKERROR command into the controller queue.
+   *
+   */
+  public sendTaskErrorCommand$(): rx.Observable<TaskErrorCommand> {
+
+    return this.serial$()
+    .pipe(
+
+      rxo.map((o: any) => new TaskErrorCommand({
+        from: this.workerId ? this.workerId : "unknown worker",
+        to: "controller",
+        rewhittId: this.rewhittId,
+        serialTask: o,
+        taskRegistry: this.taskRegistry
+      }))
+
+    )
+
+  }
+
+  /**
+   *
+   * Update modification timestamp.
+   *
+   */
+  public updateModificationTimestamp$(pg: RxPg): rx.Observable<any> {
+
+    return pg.executeParamQuery$(`
+      update rewhitt_${this.rewhittId}.task
+      set modification = now()
+      where task_id = $1;`,
+      { params: [ this.taskId ] }
+    ).pipe(
+
+      rxo.map((o: any) =>
+        `task ${this.taskTaxonomy}: updated modification time`)
+
+    )
+
+  }
+
+  /**
+   *
+   * Update posted timestamp.
+   *
+   */
+  public updatePostedTimestamp$(pg: RxPg): rx.Observable<any> {
+
+    return pg.executeParamQuery$(`
+      update rewhitt_${this.rewhittId}.task
+      set posted = now()
+      where task_id = $1;`,
+      { params: [ this.taskId ] }
+    ).pipe(
+
+      rxo.map((o: any) =>
+        `task ${this.taskTaxonomy}: updated posted time`)
+
+    )
+
+  }
+
+  /**
+   *
+   * Update queued timestamp.
+   *
+   */
+  public updateQueuedTimestamp$(pg: RxPg): rx.Observable<any> {
+
+    return pg.executeParamQuery$(`
+      update rewhitt_${this.rewhittId}.task
+      set queued = now()
+      where task_id = $1;`,
+      { params: [ this.taskId ] }
+    ).pipe(
+
+      rxo.map((o: any) =>
+        `task ${this.taskTaxonomy}: updated queued time`)
+
+    )
+
+  }
+
+  /**
+   *
+   * Update queued timestamp.
+   *
+   */
+  public updateLastProgressTimestamp$(pg: RxPg): rx.Observable<any> {
+
+    return pg.executeParamQuery$(`
+      update rewhitt_${this.rewhittId}.task
+      set last_progress = now()
+      where task_id = $1;`,
+      { params: [ this.taskId ] }
+    ).pipe(
+
+      rxo.map((o: any) =>
+        `task ${this.taskTaxonomy}: updated last_progress time`)
+
+    )
+
+  }
+
+  /**
+   *
+   * Update error timestamp.
+   *
+   */
+  public updateErrorTimestamp$(pg: RxPg): rx.Observable<any> {
+
+    return pg.executeParamQuery$(`
+      update rewhitt_${this.rewhittId}.task
+      set error = now()
+      where task_id = $1;`,
+      { params: [ this.taskId ] }
+    ).pipe(
+
+      rxo.map((o: any) =>
+        `task ${this.taskTaxonomy}: updated error time`)
+
+    )
+
+  }
+
+  /**
+   *
+   * Update finish timestamp.
+   *
+   */
+  public updateFinishTimestamp$(pg: RxPg): rx.Observable<any> {
+
+    return pg.executeParamQuery$(`
+      update rewhitt_${this.rewhittId}.task
+      set finish = now()
+      where task_id = $1;`,
+      { params: [ this.taskId ] }
+    ).pipe(
+
+      rxo.map((o: any) =>
+        `task ${this.taskTaxonomy}: updated finish time`)
+
+    )
 
   }
 

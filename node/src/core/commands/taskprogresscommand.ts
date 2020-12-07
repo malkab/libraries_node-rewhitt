@@ -2,8 +2,6 @@ import { ECOMMANDTYPE } from './ecommandtype';
 
 import { Command } from "./command";
 
-import { RunCommand } from "./runcommand";
-
 import { Task } from "../task";
 
 import * as rx from "rxjs";
@@ -14,7 +12,7 @@ import { NodeLogger } from '@malkab/node-logger';
 
 import { RxPg } from '@malkab/rxpg';
 
-import { RxRedis, RxRedisQueue } from '@malkab/rxredis';
+import { RxRedis } from '@malkab/rxredis';
 
 import { IRewhittTaskRegistry } from '../irewhitttaskregistry';
 
@@ -22,10 +20,10 @@ import { ESTATUS } from "../estatus";
 
 /**
  *
- * A QUEUE message.
+ * A TASKPROGRESS command.
  *
  */
-export class QueueCommand extends Command {
+export class TaskProgressCommand extends Command {
 
   /**
    *
@@ -70,7 +68,7 @@ export class QueueCommand extends Command {
 
     super({
       rewhittId: rewhittId,
-      commandType: ECOMMANDTYPE.QUEUE,
+      commandType: ECOMMANDTYPE.TASKPROGRESS,
       taskRegistry: taskRegistry,
       from: from,
       to: to
@@ -109,64 +107,33 @@ export class QueueCommand extends Command {
 
         t = o;
 
-        // Check if the task already exists
+        // Get the task
         return Task.get$(pg, this._rewhittId, this._taskRegistry,
           o.taskId);
 
       }),
 
-      // Not found, set new status and insert
-      rxo.catchError((o: any) => {
-
-        return t.pgInsert$(pg, { rewhittId: this._rewhittId }).pipe(
-
-          rxo.map((o: any) => `task ${t.taskTaxonomy}: inserted at PG`)
-
-        )
-
-      }),
+      // Not found, report
+      rxo.catchError((o: any) => `task ${t.taskTaxonomy}: task does not exists`),
 
       // Update
       rxo.concatMap((o: any) => {
 
-        if(o.status === ESTATUS.QUEUE) throw new Error(
-          `task ${t.taskTaxonomy}: already queued`)
-
-        t.status = ESTATUS.QUEUE;
+        t.status = ESTATUS.RUNNING;
+        t.workerId = processingSubsystem;
 
         return rx.concat(
 
           // Add the task to its queue
           t.serial$().pipe(
 
-            rxo.concatMap((o: any) =>
-              RxRedisQueue.set$(redis, t.toWorkerTaskQueueName,
-                JSON.stringify(new RunCommand({
-                  from: processingSubsystem,
-                  to: "workers",
-                  rewhittId: this._rewhittId,
-                  serialTask: o,
-                  taskRegistry: this._taskRegistry
-                }).serial))),
+            rxo.concatMap((o: any) => t.pgUpdate$(pg, { rewhittId: this._rewhittId })),
 
-            rxo.catchError((o: Error) => {
+            rxo.map((o: any) => `task ${t.taskTaxonomy}: updated at PG`),
 
-              throw new Error(`task ${t.taskTaxonomy}: error setting task to the Redis worker task queue ${t.toWorkerTaskQueueName}: ${o.message}`);
+            rxo.concatMap((o: any) => t.updateLastProgressTimestamp$(pg))
 
-            }),
-
-            rxo.map((o: any) => `task ${t.taskTaxonomy}: set to Redis queue ${t.toWorkerTaskQueueName}`)
-
-          ),
-
-          t.pgUpdate$(pg, { rewhittId: this._rewhittId }).pipe(
-
-            rxo.map((o: any) =>
-              `task ${t.taskTaxonomy}: updated at PG`)
-
-          ),
-
-          t.updateQueuedTimestamp$(pg)
+          )
 
         )
 

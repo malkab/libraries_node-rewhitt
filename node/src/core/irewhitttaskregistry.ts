@@ -1,5 +1,3 @@
-import { NodeLogger } from '@malkab/node-logger';
-
 import * as rx from "rxjs";
 
 /**
@@ -14,7 +12,7 @@ export interface IRewhittTaskRegistry {
    * The factory function.
    *
    */
-  taskFactory$: (params: any, log?: NodeLogger) => rx.Observable<any>;
+  taskFactory$: (params: any) => rx.Observable<any>;
   /**
    *
    * The map of tasks to be recognized by the Rewhitt instance. They must extend

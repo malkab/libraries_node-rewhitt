@@ -8,7 +8,7 @@ import * as rx from "rxjs";
 
 import * as rxo from "rxjs/operators";
 
-import { Client, Controller } from "../../src/index";
+import { Client, Controller, Worker } from "../../src/index";
 
 import { TaskA, TaskB, taskRegistry } from "../demotasklibrary";
 
@@ -36,6 +36,20 @@ export const clientLogger: NodeLogger = new NodeLogger({
   consoleOut: false,
   minLogLevel: ELOGLEVELS.DEBUG,
   logFilePath: "/logs/client"
+})
+
+export const workerLoggerA: NodeLogger = new NodeLogger({
+  appName: "worker",
+  consoleOut: false,
+  minLogLevel: ELOGLEVELS.DEBUG,
+  logFilePath: "/logs/workerA"
+})
+
+export const workerLoggerB: NodeLogger = new NodeLogger({
+  appName: "worker",
+  consoleOut: false,
+  minLogLevel: ELOGLEVELS.DEBUG,
+  logFilePath: "/logs/workerB"
 })
 
 /**
@@ -80,14 +94,6 @@ export const clearDatabase$: rx.Observable<boolean> =
 
 /**
  *
- * This registers tasks and the task factory into the Rewhitt system. This way
- * Rewhitt knows how to construct tasks.
- *
- */
-
-
-/**
- *
  * ReWhitt controller.
  *
  */
@@ -98,6 +104,31 @@ export const controller: Controller = new Controller({
   redis: redis,
   taskRegistry: taskRegistry,
   log: controllerLogger
+})
+
+/**
+ *
+ * ReWhitt workers.
+ *
+ */
+export const workerA: Worker = new Worker({
+  rewhittId: "test",
+  workerId: "theWorkerA",
+  pg: pg,
+  redis: redis,
+  taskRegistry: taskRegistry,
+  log: workerLoggerA,
+  taskTypes: [ "TASKA", "TASKB" ]
+})
+
+export const workerB: Worker = new Worker({
+  rewhittId: "test",
+  workerId: "theWorkerB",
+  pg: pg,
+  redis: redis,
+  taskRegistry: taskRegistry,
+  log: workerLoggerB,
+  taskTypes: [ "TASKB" ]
 })
 
 /**
@@ -115,26 +146,21 @@ export const client: Client = new Client({
 
 /**
  *
- * Tasks.
+ * Task generators.
  *
  */
-export const taskA: TaskA = new TaskA({
-  taskId: "aTaskA",
-  itemA: 33,
-  itemB: "33",
-  log: clientLogger
-})
+export const generateTaskA: (n: number) => TaskA[] = (n: number) =>
+  Array.from(Array(n).keys()).map((n: number) => new TaskA({
+    rewhittId: "test",
+    taskId: `aTask${n}`,
+    itemA: n,
+    itemB: `${n}`
+  }))
 
-export const taskB: TaskB = new TaskB({
-  taskId: "aTaskB",
-  itemC: 33,
-  itemD: "33",
-  log: clientLogger
-})
-
-export const anotherTaskB: TaskB = new TaskB({
-  taskId: "anotherTaskB",
-  itemC: 44,
-  itemD: "44",
-  log: clientLogger
-})
+export const generateTaskB: (n: number) => TaskB[] = (n: number) =>
+  Array.from(Array(n).keys()).map((n: number) => new TaskB({
+    rewhittId: "test",
+    taskId: `bTask${n}`,
+    itemC: n,
+    itemD: `${n}`
+  }))

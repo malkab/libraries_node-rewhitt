@@ -35,8 +35,8 @@ export class Client {
    * Logger.
    *
    */
-  private _log: NodeLogger | undefined;
-  get log(): NodeLogger | undefined { return this._log }
+  private _log: NodeLogger;
+  get log(): NodeLogger { return this._log }
 
   /**
    *
@@ -64,14 +64,6 @@ export class Client {
 
   /**
    *
-   * RxPg.
-   *
-   */
-  // private _pg: RxPg;
-  // get pg(): RxPg { return this._pg }
-
-  /**
-   *
    * Redis.
    *
    */
@@ -94,7 +86,7 @@ export class Client {
       clientId: string;
       redis: RxRedis;
       taskRegistry: IRewhittTaskRegistry;
-      log?: NodeLogger;
+      log: NodeLogger;
   }) {
 
     this._rewhittId = rewhittId;
@@ -107,86 +99,93 @@ export class Client {
 
   /**
    *
-   * Post a task.
+   * Post tasks.
    *
    */
-  public post$(task: Task): rx.Observable<any> {
+  public post$(...tasks: Task[]): rx.Observable<any> {
 
-    this._log?.logInfo({
-      methodName: "post$",
-      moduleName: "Client",
-      message: `POST task ${task.taskId} type ${task.taskType}`,
-      payload: { taskId: task.taskId, taskType: task.taskType }
-    })
+    // To store the observables
+    const obs: rx.Observable<any>[] = [];
 
-    // Serialize the task
-    return task.serial$()
-    .pipe(
+    tasks.map((task: Task) => {
 
-      rxo.concatMap((o: any) => {
-
-        // Serializa the POST command
-        return new PostCommand({
-          rewhittId: this._rewhittId,
-          taskRegistry: this._taskRegistry,
-          from: this.clientId,
-          to: "controller",
-          serialTask: o,
-          log: this._log
-        }).serial$();
-
-      }),
-
-      rxo.concatMap((o: any) => {
-
-        return RxRedisQueue.set$(this._redis,
-          this.clientControllerQueueName, JSON.stringify(o));
-
+      this._log.logInfo({
+        methodName: "post$",
+        moduleName: "Client",
+        message: `POST task ${task.taskTaxonomy}`,
+        payload: { taskId: task.taskId, taskType: task.taskType }
       })
 
-    )
+      // Serialize the task
+      obs.push(task.serial$()
+      .pipe(
+
+        rxo.concatMap((o: any) => {
+
+          // Serializa the POST command
+          const q = new PostCommand({
+            rewhittId: this._rewhittId,
+            taskRegistry: this._taskRegistry,
+            from: this.clientId,
+            to: "controller",
+            serialTask: o
+          }).serial;
+
+          return RxRedisQueue.set$(this._redis,
+            this.clientControllerQueueName, JSON.stringify(q));
+
+        })
+
+      ))
+
+    })
+
+    return rx.concat(...obs);
 
   }
 
   /**
    *
-   * Queue a task.
+   * Queue tasks.
    *
    */
-  public queue$(task: Task): rx.Observable<any> {
+  public queue$(...tasks: Task[]): rx.Observable<any> {
 
-    this._log?.logInfo({
-      methodName: "queue$",
-      moduleName: "Client",
-      message: `QUEUE task ${task.taskId} type ${task.taskType}`,
-      payload: { taskId: task.taskId, taskType: task.taskType }
-    })
+    // To store the observables
+    const obs: rx.Observable<any>[] = [];
 
-    return task.serial$()
-    .pipe(
+    tasks.map((task: Task) => {
 
-      rxo.concatMap((o: any) => {
-
-        // Serializa the POST command
-        return new QueueCommand({
-          rewhittId: this._rewhittId,
-          taskRegistry: this._taskRegistry,
-          from: this.clientId,
-          to: "controller",
-          serialTask: o,
-          log: this._log
-        }).serial$();
-
-      }),
-
-      rxo.concatMap((o: any) => {
-
-        return RxRedisQueue.set$(this._redis,
-          this.clientControllerQueueName, JSON.stringify(o));
-
+      this._log.logInfo({
+        methodName: "queue$",
+        moduleName: "Client",
+        message: `QUEUE task ${task.taskTaxonomy}`,
+        payload: { taskId: task.taskId, taskType: task.taskType }
       })
 
-    )
+      obs.push(task.serial$().pipe(
+
+        rxo.concatMap((o: any) => {
+
+          // Serializa a queue command
+          const q = new QueueCommand({
+            rewhittId: this._rewhittId,
+            taskRegistry: this._taskRegistry,
+            from: this.clientId,
+            to: "controller",
+            serialTask: o
+          }).serial;
+
+          return RxRedisQueue.set$(this._redis,
+            this.clientControllerQueueName, JSON.stringify(q));
+
+        })
+
+      ))
+
+    })
+
+    return rx.concat(...obs);
 
   }
 

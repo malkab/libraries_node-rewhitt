@@ -1,4 +1,4 @@
-import { Task, IRewhittTaskRegistry } from "../src/index";
+import { Task, IRewhittTaskRegistry, TaskProgressCommand, TaskFinishCommand, TaskErrorCommand, Controller } from "../src/index";
 
 import * as rx from "rxjs";
 
@@ -23,18 +23,18 @@ import { ESTATUS } from "../src/core/estatus";
  * function.
  *
  */
-export const taskFactory$: (params: any, log?: NodeLogger) => rx.Observable<TaskA | TaskB> =
-(params: any, log?: NodeLogger) => {
+export const taskFactory$: (params: any) => rx.Observable<TaskA | TaskB> =
+(params: any) => {
 
   if(params.taskType === "TASKA") {
 
-    return rx.of(new TaskA({ ...params, log: log }));
+    return rx.of(new TaskA({ ...params }));
 
   }
 
   if(params.taskType === "TASKB") {
 
-    return rx.of(new TaskB({ ...params, log: log }));
+    return rx.of(new TaskB({ ...params }));
 
   }
 
@@ -71,24 +71,55 @@ export class TaskA extends Task {
    *
    */
   constructor({
-      taskId,
+      // Specific data for this task
       itemA,
       itemB,
+
+      // Common task data
+      rewhittId,
+      taskId,
       status,
-      log
+      workerId,
+      modification,
+      created,
+      posted,
+      queued,
+      lastProgress,
+      error,
+      finish,
+      progress
     }: {
-      taskId: string;
       itemA: number;
       itemB: string;
+      rewhittId: string;
+      taskId: string;
       status?: ESTATUS;
-      log?: NodeLogger;
+      workerId?: string;
+      modification?: number;
+      created?: number;
+      posted?: number;
+      queued?: number;
+      lastProgress?: number;
+      error?: number;
+      finish?: number;
+      progress?: number;
   }) {
 
     super({
+      rewhittId: rewhittId,
+      taskRegistry: taskRegistry,
       taskId: taskId,
       taskType: "TASKA",
       status: status,
-      log: log
+      workerId: workerId,
+      modification: modification,
+      created: created,
+      posted: posted,
+      queued: queued,
+      lastProgress: lastProgress,
+      error: error,
+      finish: finish,
+      progress: progress
     });
 
     this._itemA = itemA;
@@ -115,6 +146,41 @@ export class TaskA extends Task {
         };
 
       })
+
+    )
+
+  }
+
+  /**
+   *
+   * Run the task.
+   *
+   */
+  public run$(): rx.Observable<TaskProgressCommand | TaskFinishCommand | TaskErrorCommand> {
+
+    return rx.timer(500, 500)
+    .pipe(
+
+      rxo.filter((o: number) => o % 5 === 0),
+
+      rxo.concatMap((o: any) => {
+
+        this.progress = o;
+        this._itemB = `${o}`;
+
+        if (o === 20) {
+
+          return this.sendTaskFinishCommand$();
+
+        } else {
+
+          return this.sendTaskProgressCommand$();
+
+        }
+
+      }),
+
+      rxo.take(5)
 
     )
 
@@ -151,24 +217,55 @@ export class TaskB extends Task {
    *
    */
   constructor({
-      taskId,
+      // Specific data for this task
       itemC,
       itemD,
+
+      // Common task data
+      rewhittId,
+      taskId,
       status,
-      log
+      workerId,
+      modification,
+      created,
+      posted,
+      queued,
+      lastProgress,
+      error,
+      finish,
+      progress
     }: {
-      taskId: string;
       itemC: number;
       itemD: string;
+      rewhittId: string;
+      taskId: string;
       status?: ESTATUS;
-      log?: NodeLogger;
+      workerId?: string;
+      modification?: number;
+      created?: number;
+      posted?: number;
+      queued?: number;
+      lastProgress?: number;
+      error?: number;
+      finish?: number;
+      progress?: number;
   }) {
 
     super({
+      rewhittId: rewhittId,
+      taskRegistry: taskRegistry,
       taskId: taskId,
       taskType: "TASKB",
       status: status,
-      log: log
+      workerId: workerId,
+      modification: modification,
+      created: created,
+      posted: posted,
+      queued: queued,
+      lastProgress: lastProgress,
+      error: error,
+      finish: finish,
+      progress: progress
     });
 
     this._itemC = itemC;
@@ -195,6 +292,44 @@ export class TaskB extends Task {
         };
 
       })
+
+    )
+
+  }
+
+  /**
+   *
+   * Run the task.
+   *
+   */
+  public run$(): rx.Observable<TaskProgressCommand | TaskFinishCommand | TaskErrorCommand> {
+
+    // To store the original interval emitted
+    let interval: number;
+
+    return rx.timer(1000, 1000)
+    .pipe(
+
+      rxo.filter((o: number) => o % 3 === 0),
+
+      rxo.concatMap((o: any) => {
+
+        this.progress = o;
+        this._itemD = `${o}`;
+
+        if (o === 9) {
+
+          return this.sendTaskErrorCommand$();
+
+        } else {
+
+          return this.sendTaskProgressCommand$();
+
+        }
+
+      }),
+
+      rxo.take(4)
 
     )
 

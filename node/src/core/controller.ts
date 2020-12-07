@@ -4,8 +4,6 @@ import { RxPg } from '@malkab/rxpg';
 
 import { RxRedis, RxRedisQueue } from '@malkab/rxredis';
 
-import { Task } from './task';
-
 import * as rx from "rxjs";
 
 import * as rxo from "rxjs/operators";
@@ -14,9 +12,7 @@ import { Command } from "./commands/command";
 
 import { commandFactory } from './commands/commandfactory';
 
-import { PostCommand } from './commands/postcommand';
-
-import { QueueCommand } from './commands/queuecommand';
+import { ECOMMANDTYPE } from './commands/ecommandtype';
 
 import { IRewhittTaskRegistry } from "./irewhitttaskregistry";
 
@@ -40,8 +36,8 @@ export class Controller {
    * Logger.
    *
    */
-  private _log: NodeLogger | undefined;
-  get log(): NodeLogger | undefined { return this._log }
+  private _log: NodeLogger;
+  get log(): NodeLogger { return this._log }
 
   /**
    *
@@ -53,6 +49,14 @@ export class Controller {
 
   /**
    *
+   * The name of the worker > controller queue.
+   *
+   */
+  get workerControllerQueueName(): string {
+    return `rewhitt::${this.rewhittId}::worker::controller` }
+
+  /**
+   *
    * Rewhitt instance ID, used to identify the PG schema.
    *
    */
@@ -61,7 +65,7 @@ export class Controller {
 
   /**
    *
-   * Rewhitt client name.
+   * Rewhitt controller ID.
    *
    */
   private _controllerId: string;
@@ -101,7 +105,7 @@ export class Controller {
       pg: RxPg;
       redis: RxRedis;
       taskRegistry: IRewhittTaskRegistry;
-      log?: NodeLogger;
+      log: NodeLogger;
   }) {
 
     this._rewhittId = rewhittId;
@@ -111,31 +115,59 @@ export class Controller {
     this._taskRegistry = taskRegistry;
     this._log = log;
 
+  }
+
+  /**
+   *
+   * Start the command loop.
+   *
+   */
+  public startCommandLoop(): void {
+
+    // To store the generated command by the loop
+    let storedCommand: Command;
+
+    // A blocking connection to Redis for message processing
+    const b: RxRedis = this._redis.blockingClone();
+
     // Start client > controller message loop
     RxRedisQueue.get$({
-      redis: this._redis.blockingClone(),
-      keys: this.clientControllerQueueName
+      redis: b,
+      keys: [ this.workerControllerQueueName, this.clientControllerQueueName ]
     }).pipe(
 
       // Get the command from the Redis
-      rxo.map((o: any) => {
-
-        return commandFactory({
+      rxo.map((o: any) => commandFactory({
           ...JSON.parse(o[1]),
           rewhittId: this.rewhittId,
-          taskRegistry: this._taskRegistry,
-          log: this._log
+          taskRegistry: this._taskRegistry
         })
 
-      }),
+      ),
 
       // Process the command, shielding the loop from errors
       rxo.switchMap((o: Command) => {
 
+        storedCommand = o;
+
+        // Check for allowed commands
+        if ([
+          ECOMMANDTYPE.POST,
+          ECOMMANDTYPE.QUEUE,
+          ECOMMANDTYPE.TASKPROGRESS,
+          ECOMMANDTYPE.TASKFINISH,
+          ECOMMANDTYPE.TASKERROR,
+          ECOMMANDTYPE.WORKERHEARTBEAT
+        ].indexOf(o.commandType) === -1) {
+
+          throw new Error(`unprocessable command ${o.commandType} for controller`);
+
+        };
+
         return o.process$({ pg: this.pg, redis: this.redis })
         .pipe(
 
-          rxo.catchError((o: Error) => rx.of(o.message))
+          rxo.catchError((o: Error) => rx.of(o))
 
         )
 
@@ -147,28 +179,29 @@ export class Controller {
 
       (o: any) => {
 
-        this.log?.logInfo({
-          moduleName: "controller",
+        this.log.logInfo({
+          moduleName: `controller: ${this.controllerId}`,
           methodName: "client > controller loop$",
-          message: "`${clientControllerMessage.commandType} processed`"
+          message: `${storedCommand.commandType} command: ${o}`,
+          payload: { commandType: storedCommand.commandType }
         })
 
       },
 
       (e: Error) => {
 
-        this.log?.logError({
-          moduleName: "controller",
+        this.log.logError({
+          moduleName: `controller: ${this.controllerId}`,
           methodName: "client > controller loop$",
-          message: `reaching error processing, should not happen, terminating loop`
+          message: `reaching error processing, should not happen, terminating loop: ${e.message}`
         });
 
       },
 
       () => {
 
-        this.log?.logError({
-          moduleName: "controller",
+        this.log.logError({
+          moduleName: `controller: ${this.controllerId}`,
           methodName: "client > controller loop$",
           message: `loop completing, should not happen`
         })
@@ -204,11 +237,13 @@ export class Controller {
 
       /**
        *
-       * Actions catalog, this must match the ENUM EACTIONS.
+       * Status catalog, this must include all elements in ENUM ESTATUS,
+       * although not exclusively. Also other Rewhitt system's actions or events
+       * can be added here for the log.
        *
        */
-      create table rewhitt_${this.rewhittId}.action(
-        action_id varchar(64) primary key,
+      create table rewhitt_${this.rewhittId}.status(
+        status_id varchar(64) primary key,
         description text
       );
 
@@ -220,14 +255,16 @@ export class Controller {
       create table rewhitt_${this.rewhittId}.task(
         task_id varchar(64) primary key,
         task_type varchar(64),
-        status varchar(64) references rewhitt_${this.rewhittId}.action(action_id),
+        status varchar(64) references rewhitt_${this.rewhittId}.status(status_id),
         worker_id varchar(100) references rewhitt_${this.rewhittId}.worker(worker_id),
+        modification timestamp,
         created timestamp,
         posted timestamp,
         queued timestamp,
-        start timestamp,
-        modification timestamp,
-        completion timestamp,
+        last_progress timestamp,
+        error timestamp,
+        finish timestamp,
+        progress float,
         params jsonb
       );
 
@@ -249,7 +286,7 @@ export class Controller {
         t timestamp,
         agent varchar(64),
         log_type_id varchar(64) references rewhitt_${this.rewhittId}.log_type(log_type_id),
-        action_id varchar(64) references rewhitt_${this.rewhittId}.action(action_id),
+        status_id varchar(64) references rewhitt_${this.rewhittId}.status(status_id),
         additional_params jsonb,
         primary key (t, agent)
       );
@@ -264,17 +301,26 @@ export class Controller {
 
       /**
        *
-       * Actions.
+       * Status.
        *
        */
-      insert into rewhitt_${this.rewhittId}.action
+      insert into rewhitt_${this.rewhittId}.status
       values ('INIT', 'Rewhitt initialization');
 
-      insert into rewhitt_${this.rewhittId}.action
+      insert into rewhitt_${this.rewhittId}.status
       values ('POST', 'POST command');
 
-      insert into rewhitt_${this.rewhittId}.action
+      insert into rewhitt_${this.rewhittId}.status
       values ('QUEUE', 'QUEUE command');
+
+      insert into rewhitt_${this.rewhittId}.status
+      values ('RUNNING', 'RUNNING command');
+
+      insert into rewhitt_${this.rewhittId}.status
+      values ('FINISH', 'FINISH command');
+
+      insert into rewhitt_${this.rewhittId}.status
+      values ('ERROR', 'ERROR command');
 
       /**
        *
@@ -292,7 +338,7 @@ export class Controller {
 
         if (e.message === `schema "rewhitt_${this.rewhittId}" already exists`) {
 
-          this.log?.logError({
+          this.log.logError({
             message: `error initializing Rewhitt: already initialized`,
             moduleName: "controller",
             methodName: "init()"
@@ -302,7 +348,7 @@ export class Controller {
 
         } else {
 
-          this.log?.logError({
+          this.log.logError({
             message: `unexpected error initializing Rewhitt: ${e.message}`,
             moduleName: "controller",
             methodName: "init()"
@@ -316,7 +362,7 @@ export class Controller {
 
       rxo.map((o: any) => {
 
-        this.log?.logInfo({
+        this.log.logInfo({
           message: `Rewhitt ${this.rewhittId} initialized`,
           moduleName: "controller",
           methodName: "init()",

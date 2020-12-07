@@ -33,13 +33,6 @@ export class Command {
 
   /**
    *
-   * The log.
-   *
-   */
-  protected _log: NodeLogger | undefined;
-
-  /**
-   *
    * From message.
    *
    */
@@ -64,6 +57,21 @@ export class Command {
 
   /**
    *
+   * serial, for RxRedisQueue.
+   *
+   */
+  get serial(): any {
+
+    return {
+      from: this._from,
+      to: this._to,
+      commandType: this._commandType
+    }
+
+  }
+
+  /**
+   *
    * Constructor.
    *
    */
@@ -72,15 +80,13 @@ export class Command {
       commandType,
       taskRegistry,
       from,
-      to,
-      log
+      to
     }: {
       rewhittId: string;
       commandType: ECOMMANDTYPE;
       taskRegistry: IRewhittTaskRegistry;
       from: string;
       to: string;
-      log?: NodeLogger;
   }) {
 
     this._rewhittId = rewhittId;
@@ -88,22 +94,6 @@ export class Command {
     this._taskRegistry = taskRegistry;
     this._from = from;
     this._to = to;
-    this._log = log;
-
-  }
-
-  /**
-   *
-   * serial$, for RxRedisQueue.
-   *
-   */
-  public serial$(): rx.Observable<any> {
-
-    return rx.of({
-      from: this._from,
-      to: this._to,
-      commandType: this._commandType
-    })
 
   }
 
@@ -116,8 +106,8 @@ export class Command {
       pg,
       redis
     }: {
-      pg: RxPg,
-      redis: RxRedis
+      pg: RxPg;
+      redis: RxRedis;
     }): rx.Observable<any> {
 
     throw new Error(

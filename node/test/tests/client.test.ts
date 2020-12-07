@@ -2,7 +2,7 @@ import "mocha";
 
 import { expect } from "chai";
 
-import { clearDatabase$, pg, redis, controller, client, taskA, taskB, anotherTaskB } from "./common";
+import { clearDatabase$, redis, controller, client, generateTaskB, generateTaskA } from "./common";
 
 import { rxMochaTests } from "@malkab/ts-utils";
 
@@ -58,7 +58,7 @@ describe("Initialize Rewhitt", function() {
 
 /**
  *
- * Post a task.
+ * Post tasks.
  *
  */
 describe("Post a task", function() {
@@ -68,11 +68,10 @@ describe("Post a task", function() {
     testCaseName: "Post a task",
 
     observables: [
-      client.post$(taskA),
-      client.post$(taskA),
-      client.post$(taskA),
-      client.post$(taskB),
-      client.post$(taskB)
+      client.post$(...generateTaskA(2)),
+      client.post$(...generateTaskA(2)),
+      client.post$(...generateTaskB(2)),
+      client.post$(...generateTaskB(2))
     ],
 
     assertions: [
@@ -82,19 +81,31 @@ describe("Post a task", function() {
       },
 
       (o: any) => {
-        expect(o, "2nd POST taskA").to.be.greaterThan(0)
+        expect(o, "2nd POST taskA").to.be.greaterThan(0);
       },
 
       (o: any) => {
-        expect(o, "3rd POST taskA").to.be.greaterThan(0)
+        expect(o, "Repeated 1st POST taskA").to.be.greaterThan(0);
       },
 
       (o: any) => {
-        expect(o, "1st POST taskB").to.be.greaterThan(0)
+        expect(o, "Repeated 2nd POST taskA").to.be.greaterThan(0);
       },
 
       (o: any) => {
-        expect(o, "2nd POST taskB").to.be.greaterThan(0)
+        expect(o, "1st POST taskB").to.be.greaterThan(0);
+      },
+
+      (o: any) => {
+        expect(o, "2nd POST taskB").to.be.greaterThan(0);
+      },
+
+      (o: any) => {
+        expect(o, "Repeated 1st POST taskB").to.be.greaterThan(0);
+      },
+
+      (o: any) => {
+        expect(o, "Repeated 2nd POST taskB").to.be.greaterThan(0);
       }
 
     ],
@@ -107,7 +118,7 @@ describe("Post a task", function() {
 
 /**
  *
- * Queue a task.
+ * Queue tasks.
  *
  */
 describe("Queue a task", function() {
@@ -117,12 +128,10 @@ describe("Queue a task", function() {
     testCaseName: "Queue a task",
 
     observables: [
-      client.queue$(taskA),
-      client.queue$(taskA),
-      client.queue$(taskA),
-      client.queue$(taskB),
-      client.queue$(taskB),
-      client.queue$(anotherTaskB)
+      client.post$(...generateTaskA(2)),
+      client.post$(...generateTaskA(2)),
+      client.post$(...generateTaskB(2)),
+      client.post$(...generateTaskB(2))
     ],
 
     assertions: [
@@ -132,28 +141,38 @@ describe("Queue a task", function() {
       },
 
       (o: any) => {
-        expect(o, "2nd QUEUE taskA").to.be.greaterThan(0)
+        expect(o, "2nd QUEUE taskA").to.be.greaterThan(0);
       },
 
       (o: any) => {
-        expect(o, "3rd QUEUE taskA").to.be.greaterThan(0)
+        expect(o, "Repeated 1st QUEUE taskA").to.be.greaterThan(0);
       },
 
       (o: any) => {
-        expect(o, "1st QUEUE taskB").to.be.greaterThan(0)
+        expect(o, "Repeated 2nd QUEUE taskA").to.be.greaterThan(0);
       },
 
       (o: any) => {
-        expect(o, "2nd QUEUE taskB").to.be.greaterThan(0)
+        expect(o, "1st QUEUE taskB").to.be.greaterThan(0);
       },
 
       (o: any) => {
-        expect(o, "1st QUEUE anotherTaskB").to.be.greaterThan(0)
+        expect(o, "2nd QUEUE taskB").to.be.greaterThan(0);
+      },
+
+      (o: any) => {
+        expect(o, "Repeated 1st QUEUE taskB").to.be.greaterThan(0);
+      },
+
+      (o: any) => {
+        expect(o, "Repeated 2nd QUEUE taskB").to.be.greaterThan(0);
       }
 
     ],
 
-    verbose: false
+    verbose: false,
+
+    active: true
 
   })
 
