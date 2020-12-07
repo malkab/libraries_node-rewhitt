@@ -1,6 +1,6 @@
 {
   "name": "@malkab/rewhitt",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "A controller - workers framework for paralellization over several machines for Node.",
   "scope": "@malkab",
   "author": {
